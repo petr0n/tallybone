@@ -1,0 +1,58 @@
+/* Tallybone global shell. Screen- and component-specific styles are added by
+   their own tasks; this file holds only the reset, the textured app frame, and
+   shared utilities. Design source: design/design_handoff_tallybone/. */
+
+@import './tokens.css';
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { height: 100%; }
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* Concrete plaster under every light screen — the app never shows flat
+     concrete. Dark/ink screens paint over it with their own background. */
+  background-color: var(--concrete);
+  background-image: url('./assets/app-bg.png');
+  background-size: cover;
+  background-position: center;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Single fixed-width phone column; larger screens get extra height, never
+   extra columns (per the design's responsive rule). */
+#app {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* iOS safe areas — the bottom action bar clears the home indicator. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* --- shared utilities --- */
+
+/* The entire Tallybone press animation: the element slides into its own hard
+   ink shadow, which goes to zero. No opacity/scale/ripple. */
+.tb-press { transition: transform 0.04s ease, box-shadow 0.04s ease; }
+.tb-press:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--ink) !important;
+}
+
+/* Halftone dot fringe — stands in for gradients (under tiles, behind scan). */
+.tb-halftone {
+  background-image: var(--halftone);
+  background-size: var(--halftone-size);
+}
+
+/* Screaming-fast tap on mobile (no 300ms delay), no text selection on chrome. */
+button, .tb-press { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }

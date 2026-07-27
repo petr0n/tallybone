@@ -1,0 +1,202 @@
+/* Tallybone shared component styles — values transcribed from
+   design/design_handoff_tallybone/Tallybone Components.dc.html. Imported by
+   components/ui.js. Press feedback comes from the shared .tb-press utility. */
+
+/* ---------- buttons (§02) ---------- */
+.tb-btn {
+  width: 100%;
+  height: var(--tap-control);
+  border-radius: var(--r-card);
+  border: var(--ol-base) solid var(--ink);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: var(--shadow-raised);
+}
+.tb-btn__icon { font-family: var(--font-display); }
+.tb-btn--primary { background: var(--sky); }
+.tb-btn--secondary { background: var(--bone); font-weight: 700; }
+.tb-btn--blocked {
+  background: var(--bone);
+  color: var(--destructive-text);
+  border-color: var(--flare);
+  box-shadow: 4px 4px 0 var(--flare);
+}
+.tb-btn:disabled,
+.tb-btn[aria-disabled="true"] {
+  background: var(--concrete);
+  color: var(--disabled-text);
+  border-color: var(--disabled-text);
+  box-shadow: none;
+  cursor: default;
+}
+.tb-btn--quiet {
+  height: 48px;
+  background: transparent;
+  border: none;
+  border-bottom: var(--ol-base) solid var(--ink);
+  border-radius: 0;
+  font-weight: 700;
+  font-size: 16px;
+  box-shadow: none;
+}
+
+/* ---------- status chip (§04, card size) ---------- */
+.tb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--ink);
+  padding: 4px 12px 4px 5px;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 13px;
+}
+.tb-chip__badge {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+.tb-chip--ok { background: var(--success-bg); border-color: var(--success); color: var(--success-text); }
+.tb-chip--ok .tb-chip__badge { background: var(--success); color: var(--bone); }
+.tb-chip--check { background: var(--check-bg); border-color: var(--check); color: var(--check-text); }
+.tb-chip--check .tb-chip__badge { background: var(--check); color: var(--ink); font-size: 12px; }
+.tb-chip--error { background: var(--error-bg); border-color: var(--error); color: var(--error-text); }
+.tb-chip--error .tb-chip__badge { background: var(--error); color: var(--bone); font-size: 12px; }
+
+/* ---------- banner (§06) ---------- */
+.tb-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: var(--ol-base) solid var(--ink);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-raised);
+  padding: 14px 16px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.tb-banner__badge {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  border: 2.5px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+.tb-banner--info { background: var(--bone); }
+.tb-banner--info .tb-banner__badge { background: var(--sky); }
+.tb-banner--check { background: var(--check-bg); border-color: var(--check); color: var(--check-text); }
+.tb-banner--check .tb-banner__badge { background: var(--check); }
+.tb-banner--error { background: var(--error-bg); border-color: var(--error); color: var(--error-text); }
+.tb-banner--error .tb-banner__badge { background: var(--error); color: var(--bone); }
+.tb-banner--success { background: var(--success-bg); border-color: var(--success); color: var(--success-text); align-items: center; }
+.tb-banner--success .tb-banner__badge { background: var(--success); color: var(--bone); }
+
+/* ---------- stepper (§05, card size 38×46) ---------- */
+.tb-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 2.5px solid var(--ink);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--field-white);
+}
+.tb-stepper__btn {
+  width: 38px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  background: var(--stepper-btn);
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tb-stepper__btn--minus { border-right: 2.5px solid var(--ink); }
+.tb-stepper__btn--plus { border-left: 2.5px solid var(--ink); }
+.tb-stepper__btn:active { background: var(--sky); }
+.tb-stepper__btn--limit { background: var(--concrete); color: var(--placeholder-border); cursor: default; }
+.tb-stepper__btn--limit:active { background: var(--concrete); }
+.tb-stepper__val {
+  width: 42px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+.tb-stepper__val--a { color: var(--num-a); }
+.tb-stepper__val--b { color: var(--num-b); }
+
+/* ---------- header (§08) ---------- */
+.tb-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.tb-header--dark { background: var(--ink); color: var(--bone); padding: 14px 20px 16px; }
+.tb-header--light { background: var(--bone); border-bottom: var(--ol-base) solid var(--ink); padding: 14px 20px; }
+.tb-header__icon {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+.tb-header--dark .tb-header__icon { border: 2.5px solid var(--bone); }
+.tb-header--light .tb-header__icon { border: 2.5px solid var(--ink); }
+.tb-header__chevron { font-size: 22px; }
+.tb-header__trailing { font-size: 18px; }
+.tb-header__titles { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tb-header__overline { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.2em; color: var(--sky); }
+.tb-header__title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- bottom action bar (§08) ---------- */
+.tb-bottombar {
+  width: 100%;
+  background: var(--bone);
+  border-top: var(--ol-base) solid var(--ink);
+  padding: 16px 20px 26px;
+  padding-bottom: calc(26px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tb-bottombar__totalrow { display: flex; align-items: baseline; justify-content: space-between; }
+.tb-bottombar__label { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--secondary-light-1); }
+.tb-bottombar__label--blocked { color: var(--error-text); }
+.tb-bottombar__total { font-family: var(--font-display); font-size: 38px; line-height: 0.9; }
+.tb-bottombar__total--blocked { color: var(--disabled-text); }
+.tb-bottombar__helper { font-size: 13.5px; line-height: 1.4; text-align: center; color: var(--secondary-light-1); }

@@ -1,0 +1,145 @@
+/* Tallybone design tokens — transcribed from
+   design/design_handoff_tallybone/Tallybone Tokens.dc.html (the authoritative
+   token board). One custom property per token; names mirror the README roles.
+   Fonts are bundled locally (offline / CSP / GH-Pages), never fetched. */
+
+@font-face {
+  font-family: 'Anton';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('./assets/fonts/anton-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('./assets/fonts/archivo-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal; font-weight: 500; font-display: swap;
+  src: url('./assets/fonts/archivo-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal; font-weight: 600; font-display: swap;
+  src: url('./assets/fonts/archivo-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal; font-weight: 700; font-display: swap;
+  src: url('./assets/fonts/archivo-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal; font-weight: 800; font-display: swap;
+  src: url('./assets/fonts/archivo-800.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Mono';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('./assets/fonts/space-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Mono';
+  font-style: normal; font-weight: 700; font-display: swap;
+  src: url('./assets/fonts/space-mono-700.woff2') format('woff2');
+}
+
+:root {
+  /* --- brand --- */
+  --ink: #0D0000;
+  --bone: #F2EBD5;
+  --concrete: #D9D8D0;
+  --sky: #5BB5D9;
+  --flare: #F23535;
+
+  /* --- semantic status (fill / border / text) --- */
+  --success: #2FA36B;
+  --success-bg: #DCF0E5;
+  --success-text: #12472F;
+  --check: #E0A02C;
+  --check-bg: #F8E7C4;
+  --check-text: #5A3E07;
+  --error: #F23535;
+  --error-bg: #FBDCDC;
+  --error-text: #8E1414;
+
+  /* --- supporting --- */
+  --field-white: #FFFDF6;      /* stepper/input field */
+  --stepper-btn: #E5DCC2;      /* stepper button + empty code box */
+  --muted-on-dark: #C9C4B4;
+  --secondary-on-dark: #B6B0A2;
+  --placeholder-border: #A9A49B; /* dashed placeholder, hairline rules */
+  --disabled-text: #8A857D;
+  --dismissed-text: #6E675F;
+  --secondary-light-1: #4A423B;
+  --secondary-light-2: #3A342E;
+  --link: #2E7D9E;             /* link + left-half numerals */
+  --destructive-text: #C11F1F; /* destructive + right-half numerals */
+  --camera-dead: #151313;
+  --inset-panel-1: #1D1A19;
+  --inset-panel-2: #3A3533;
+  --sky-tint: #9FD6EC;
+
+  /* --- pips: left/top = Sky, right/bottom = Flare; numerals track the same
+     halves but use the darker link/destructive tones for legibility --- */
+  --pip-a: var(--sky);
+  --pip-b: var(--flare);
+  --num-a: #2E7D9E;
+  --num-b: #C11F1F;
+
+  /* --- player seat colors (cycled by seat index) --- */
+  --seat-0: #5BB5D9;
+  --seat-1: #E5DCC2;
+  --seat-2: #F23535;
+  --seat-3: #D9D8D0;
+  --seat-4: #9FD6EC;
+  --seat-5: #E0A02C;
+
+  /* --- type --- */
+  --font-display: 'Anton', sans-serif; /* titles, totals, numbers; UPPERCASE */
+  --font-ui: 'Archivo', sans-serif;    /* buttons, labels, body */
+  --font-mono: 'Space Mono', monospace;/* overlines, codes, slash notation */
+
+  /* --- spacing (4pt base) --- */
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 12px;
+  --sp-lg: 16px;
+  --sp-xl: 20px;
+  --sp-2xl: 28px;
+  --sp-3xl: 40px;
+  --sp-4xl: 64px;
+  --gutter: 20px;
+
+  /* --- tap targets --- */
+  --tap-min: 44px;
+  --tap-control: 56px;   /* steppers, buttons, bottom bar */
+  --tap-primary: 58px;   /* primary game buttons */
+  --tap-shutter: 88px;
+
+  /* --- radius --- */
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-card: 14px;
+  --r-tile: 18px;
+  --r-pill: 999px;
+  --r-frame: 40px;
+
+  /* --- outline weights --- */
+  --ol-hair: 2px;
+  --ol-base: 3px;
+  --ol-bold: 4px;
+  --ol-sm: 2.5px;
+
+  /* --- elevation: hard ink offset, no blur --- */
+  --shadow-raised: 4px 4px 0 var(--ink);
+  --shadow-lifted-6: 6px 6px 0 var(--ink);
+  --shadow-lifted: 8px 8px 0 var(--ink);
+  /* on ink-black screens the offset flips to bone */
+  --shadow-raised-bone: 4px 4px 0 var(--bone);
+  --shadow-code-bone: 5px 5px 0 rgba(242, 235, 213, 0.22);
+
+  /* --- texture --- */
+  --halftone: radial-gradient(var(--ink) 1.4px, transparent 1.5px);
+  --halftone-size: 6px 6px;
+}
