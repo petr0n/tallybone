@@ -30,3 +30,9 @@ public/gt-audit.html
 public/pip-label.html
 # wrangler / cloudflare dev cache
 .wrangler/
+
+# playwright + test fixtures
+/test-results/
+/playwright-report/
+/tests/fixtures/photos/
+/tests/fixtures/labeled/photos
