@@ -46,7 +46,7 @@ export function renderCapture({ onShutter, onHelp, onUpload, onBack } = {}) {
   if (onUpload) {
     const up = html(
       '<label class="cap__upload tb-press"><span style="font-family:var(--font-display);font-size:14px;">⤢</span>' +
-      'Upload a photo<input type="file" accept="image/*" style="display:none"></label>');
+      'Take a photo<input type="file" accept="image/*" capture="environment" style="display:none"></label>');
     up.querySelector('input').addEventListener('change', (e) => {
       if (e.target.files && e.target.files[0]) onUpload(e.target.files[0]);
     });

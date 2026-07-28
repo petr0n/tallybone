@@ -57,7 +57,14 @@ port **5199** automatically (reused if already running).
 3. Start `pnpm dev`; `SMOKE_BASE=ws://localhost:5199 pnpm test:stress` — 0 errors, p95 latency sane.
 4. **Scan a batch of your OWN real tiles** through the app (`pnpm dev`, "Just count
    my tiles") and eyeball the totals — the corpus is not your set/lighting.
-5. Do one real 2-phone dry run over the same wifi you'll use at the event.
+5. **On a real iPhone/iPad (both Chrome AND Safari):** open the app and scan.
+   iOS forces every browser onto WebKit, and the LIVE camera (`getUserMedia`) is
+   unreliable outside Safari — so on iOS the app falls back to a native **"Take a
+   photo of your tiles"** button (works in every iOS browser). Confirm that
+   fallback actually scans on Chrome-iOS, and that the live camera works in
+   Safari-iOS. (Automated `ios-fallback.spec.js` validates the *logic* in
+   Chromium; only a real device confirms the OS camera behavior.)
+6. Do one real 2-phone dry run over the same wifi you'll use at the event.
 
 ## Notes / gotchas
 

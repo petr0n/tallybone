@@ -38,3 +38,17 @@ export async function setCameraPhoto(page, absPath) {
   const b64 = fs.readFileSync(absPath).toString('base64');
   await page.evaluate((d) => window.__setCameraImage(d), `data:image/jpeg;base64,${b64}`);
 }
+
+// Simulate iOS non-Safari: getUserMedia rejects (WKWebView blocks the live
+// camera). Combine with an iOS userAgent on the context to exercise the fallback.
+export async function blockCamera(context) {
+  await context.addInitScript(() => {
+    const md = navigator.mediaDevices || {};
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: md });
+    Object.defineProperty(md, 'getUserMedia', {
+      configurable: true, writable: true,
+      value: () => Promise.reject(new DOMException('blocked', 'NotAllowedError')),
+    });
+  });
+}
+

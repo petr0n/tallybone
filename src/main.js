@@ -15,13 +15,18 @@ import { renderCapture } from './screens/capture.js';
 import { renderScanning } from './screens/scanning.js';
 import { renderReview } from './screens/review.js';
 import { renderSubmitted } from './screens/submitted.js';
-import { renderDenied, renderEmpty, renderUnavailable } from './screens/fallback.js';
+import { renderDenied, renderEmpty, renderUnavailable, renderCameraBlocked } from './screens/fallback.js';
 import { renderHome, renderRules, renderCreate, renderJoin, renderLobby } from './screens/game-setup.js';
 import { renderRound, renderSubmit, renderStandings, renderManager, renderOver, renderPickDouble } from './screens/game-play.js';
 import { mintCode, suggestedNextDouble, viewGame, joinUrl, joinCodeFromUrl } from './game-state.js';
 import { brandLockup } from './brand.js';
 import { html } from './dom.js';
+import { isIOS, isIOSNonSafari } from './platform.js';
 import * as net from './net.js';
+
+// On iOS every browser is WebKit; the live camera (getUserMedia) is unreliable
+// outside Safari, so always offer the native photo-capture path there.
+const photoFallback = ENABLE_UPLOAD_FALLBACK || isIOS();
 
 const CONFIDENCE_OK = 0.85;
 const root = document.querySelector('#app');
@@ -248,16 +253,25 @@ function ensureScannerThen(cb) {
 function showCapture() {
   const cap = renderCapture({
     onShutter: doScan,
-    onUpload: ENABLE_UPLOAD_FALLBACK ? doUpload : null,
+    onUpload: photoFallback ? doUpload : null,
     onBack: navBack,
   });
   mount(cap.el);
   currentVideo = cap.video;
   requestCamera(cap.video).then((res) => {
     if (res.stream) stream = res.stream;
+    else if (photoFallback) navSwap(showCameraBlocked); // iOS: live camera blocked -> take a photo
     else if (res.error === 'denied') navSwap(showDenied);
     else navSwap(showUnavailable);
   });
+}
+function showCameraBlocked() {
+  mount(renderCameraBlocked({
+    iosNonSafari: isIOSNonSafari(),
+    onUpload: doUpload,
+    onManual: showManual,
+    onBack: navBack,
+  }));
 }
 function doScan() {
   if (!currentVideo || !currentVideo.videoWidth) return;

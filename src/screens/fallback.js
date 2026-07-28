@@ -68,6 +68,43 @@ export function renderEmpty({ onRetry, onManual } = {}) {
   return root;
 }
 
+// A hidden native file input styled as a button. `capture="environment"` opens
+// the rear camera directly on mobile (works in every iOS browser — it's the OS
+// camera, not getUserMedia).
+function photoInputButton(label, onFile) {
+  const el = html(
+    `<label class="tb-btn tb-btn--primary tb-press" style="display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">` +
+    `<span class="tb-btn__icon" style="font-size:18px;">▤</span>${label}` +
+    `<input type="file" accept="image/*" capture="environment" style="display:none"></label>`);
+  el.querySelector('input').addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) onFile(e.target.files[0]);
+  });
+  return el;
+}
+
+// Camera blocked (iOS non-Safari / no live camera) -> take a photo instead. The
+// native photo path works where the live viewfinder can't.
+export function renderCameraBlocked({ iosNonSafari, onUpload, onManual, onBack } = {}) {
+  const root = html('<div class="screen screen--light msg"></div>');
+  root.appendChild(lightHeader('SCAN YOUR TILES', onBack));
+  const nudge = iosNonSafari
+    ? '<div class="msg__errbanner" style="box-shadow:var(--shadow-raised);"><div class="msg__errbanner-badge">i</div>' +
+      '<div class="msg__errbanner-text">For a live viewfinder, open Tallybone in <strong>Safari</strong>. Either way, you can take a photo right here.</div></div>'
+    : '';
+  root.appendChild(html(
+    '<div class="msg__mid">' +
+    '<div style="width:112px;height:112px;border-radius:24px;border:4px solid var(--ink);background:var(--bone);box-shadow:var(--shadow-lifted-6);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:52px;color:var(--ink);">▤</div>' +
+    '<div style="display:flex;flex-direction:column;gap:12px;">' +
+    '<div class="msg__title">TAKE A PHOTO OF YOUR TILES</div>' +
+    "<div class=\"msg__body\" style=\"color:var(--secondary-light-2);\">This browser can't open the live camera, but snap a photo and Tallybone counts it just the same.</div></div>" +
+    nudge + '</div>'));
+  const foot = html('<div class="msg__foot"></div>');
+  foot.appendChild(photoInputButton('Take a photo of your tiles', onUpload));
+  foot.appendChild(button({ label: 'Enter tiles by hand', variant: 'secondary', onClick: onManual }));
+  root.appendChild(foot);
+  return root;
+}
+
 // 06 · camera unavailable (light)
 export function renderUnavailable({ onRetry, onManual } = {}) {
   const root = html('<div class="screen screen--light msg"></div>');
