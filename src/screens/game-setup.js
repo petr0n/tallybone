@@ -4,26 +4,14 @@
 import { domino } from '../components/domino.js';
 import { html, el } from '../dom.js';
 import { tallyMark } from '../brand.js';
-import { initials, seated, MAX_SEATS, SEAT_TOKENS } from '../game-state.js';
+import { initials, seated, joinUrl, MAX_SEATS, SEAT_TOKENS } from '../game-state.js';
+import { qr } from '../components/qr.js';
 import heroUrl from '../assets/home-hero.png';
 
-// Decorative QR stand-in (NOT scannable) — deterministic pattern from the code.
-// Real deep-link QR encoding is a Phase-2 follow-up (needs an encoder).
-export function qrMock(code, size) {
-  const n = 11;
-  const wrap = el('div');
-  wrap.style.cssText = `width:${size}px;height:${size}px;flex:none;background:var(--bone);border-radius:8px;padding:6px;display:grid;grid-template-columns:repeat(${n},1fr);gap:1px;`;
-  let seed = 0;
-  for (let i = 0; i < code.length; i++) seed = (seed * 31 + code.charCodeAt(i)) >>> 0;
-  for (let i = 0; i < n * n; i++) {
-    seed = (seed * 1103515245 + 12345) >>> 0;
-    const on = ((seed >> 16) & 1) === 1
-      || (i < n * 3 && i % n < 3) || (i < n * 3 && i % n >= n - 3) || (i >= n * (n - 3) && i % n < 3);
-    const cell = el('div');
-    cell.style.background = on ? 'var(--ink)' : 'transparent';
-    wrap.appendChild(cell);
-  }
-  return wrap;
+// A REAL, scannable QR of the game's deep link, encoded on device. Scanning it
+// opens Tallybone with the code already filled in (main.js reads `?j=`).
+function joinQr(code, size) {
+  return qr(joinUrl(code), size, `Scan to join game ${code}`);
 }
 
 function backChevron(dark, onBack) {
@@ -148,7 +136,7 @@ export function renderCreate({ game, onBack, onOpen, onNewCode, onCopy, onName }
   mid.appendChild(codeRow);
 
   const qrRow = html('<div style="display:flex;align-items:center;gap:16px;width:100%;"></div>');
-  qrRow.appendChild(qrMock(game.code, 112));
+  qrRow.appendChild(joinQr(game.code, 112));
   const qrText = html('<div style="flex:1;display:flex;flex-direction:column;gap:9px;"></div>');
   qrText.appendChild(html('<div style="font-family:var(--font-display);font-size:21px;color:var(--bone);line-height:1.05;">OR POINT A PHONE AT THIS</div>'));
   qrText.appendChild(html('<div style="font-size:13.5px;line-height:1.45;color:var(--secondary-on-dark);">Opens Tallybone with the code already in.</div>'));
@@ -308,7 +296,7 @@ export function renderLobby({ game, canManage, onBack, onStartRound, onCopy, onR
   game.code.split('').forEach((ch) => codeTiles.appendChild(html(`<div style="width:42px;height:54px;background:var(--bone);border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:30px;color:var(--ink);">${ch}</div>`)));
   codeStrip.appendChild(codeTiles);
   const qrCol = html('<div style="display:flex;flex-direction:column;align-items:center;gap:5px;"></div>');
-  qrCol.appendChild(qrMock(game.code, 66));
+  qrCol.appendChild(joinQr(game.code, 66));
   qrCol.appendChild(html('<div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.14em;color:var(--sky-tint);">SCAN TO JOIN</div>'));
   codeStrip.appendChild(qrCol);
   codeStrip.addEventListener('click', onCopy);

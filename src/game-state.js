@@ -3,6 +3,7 @@
 // screens still consume a `game` object with per-player flags + seat tokens;
 // viewGame() adapts a raw snapshot into that shape, and the helpers derive
 // standings from it. No fake players/scores here anymore — the DO is the truth.
+import { JOIN_URL_BASE } from './config.js';
 
 // Code alphabet excludes the read-aloud lookalikes O/0/I/1 (the #1 join failure).
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -17,6 +18,25 @@ export function mintCode() {
 
 export function initials(name) {
   return (name || '').slice(0, 2).toUpperCase();
+}
+
+// ---------- join links ----------
+// One definition of the deep-link format, shared by everything that touches it:
+// the QR on Create/Lobby, the copy-to-clipboard action, and main.js's boot-time
+// parser. A query param (not a path) means the static host needs no SPA-rewrite
+// rule for join links to resolve.
+export const JOIN_PARAM = 'j';
+
+export function joinUrl(code) {
+  return `${JOIN_URL_BASE}/?${JOIN_PARAM}=${encodeURIComponent(code)}`;
+}
+
+// Pull a join code out of a URL's query string. Returns '' when absent, and
+// normalizes the same way the Join screen's input does (upper-case, alphanumeric
+// only, 5 chars) so a hand-typed or mangled link still lands somewhere sane.
+export function joinCodeFromUrl(search) {
+  const raw = new URLSearchParams(search || '').get(JOIN_PARAM) || '';
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 }
 
 // Round 1 opens on double-twelve. After that the manager CHOOSES the next

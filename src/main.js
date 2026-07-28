@@ -18,7 +18,7 @@ import { renderSubmitted } from './screens/submitted.js';
 import { renderDenied, renderEmpty, renderUnavailable } from './screens/fallback.js';
 import { renderHome, renderRules, renderCreate, renderJoin, renderLobby } from './screens/game-setup.js';
 import { renderRound, renderSubmit, renderStandings, renderManager, renderOver, renderPickDouble } from './screens/game-play.js';
-import { mintCode, suggestedNextDouble, viewGame } from './game-state.js';
+import { mintCode, suggestedNextDouble, viewGame, joinUrl, joinCodeFromUrl } from './game-state.js';
 import { brandLockup } from './brand.js';
 import { html } from './dom.js';
 import * as net from './net.js';
@@ -144,7 +144,10 @@ function showCreate() {
     onBack: navBack,
     onName: (v) => { createDraft.managerName = v; },
     onNewCode: () => { createDraft.code = mintCode(); createDraft.copied = false; navSwap(showCreate); },
-    onCopy: () => { copyText(createDraft.code); createDraft.copied = true; navSwap(showCreate); },
+    // Copy the join LINK, not the bare code — this pill sits next to the QR, so
+    // it's the "can't scan, text it to me instead" path. The code itself is on
+    // screen in 58px tiles for reading aloud.
+    onCopy: () => { copyText(joinUrl(createDraft.code)); createDraft.copied = true; navSwap(showCreate); },
     onOpen: () => enterGame(createDraft.code, (createDraft.managerName || '').trim() || 'Manager'),
   }));
 }
@@ -163,7 +166,7 @@ function showLobby() {
     canManage: net.isManager(),
     onBack: leaveToHome,
     onStartRound: () => net.send({ t: 'startRound' }),
-    onCopy: () => copyText(view().code),
+    onCopy: () => copyText(joinUrl(view().code)),
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
   }));
 }
@@ -324,6 +327,22 @@ function showEmpty() { mount(renderEmpty({ onRetry: () => navSwap(showCapture), 
 
 // ---------- start ----------
 startScannerInit().catch(() => {}); // warm the models in the background
+
+// Deep link: `/?j=CODE`, from a scanned QR or a shared link. Strip the param
+// straight away (replaceState, so no extra history entry) — otherwise a reload
+// or a back-out of the game would keep dragging the player to Join, and the
+// code would linger in the address bar after they've moved on.
+const linkCode = joinCodeFromUrl(location.search);
+if (linkCode) history.replaceState(null, '', location.pathname + location.hash);
+
 const activeCode = safeGet('tb.active');
-if (activeCode) { routeNextSnapshot = true; net.connect(activeCode); } // reclaim seat on reload
-navReset(showHome);
+if (linkCode && linkCode !== activeCode) {
+  // A table we're not already sitting at: Join, code filled in, name to enter.
+  joinPrefill = linkCode;
+  navReset(showJoin);
+} else {
+  // No link, or a link back to the game we're already in — reclaim that seat
+  // rather than asking for a name again. Routing happens on the first snapshot.
+  if (activeCode) { routeNextSnapshot = true; net.connect(activeCode); }
+  navReset(showHome);
+}
