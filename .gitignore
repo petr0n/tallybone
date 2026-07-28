@@ -28,3 +28,5 @@ public/gt_audit/
 public/pip_labeling/
 public/gt-audit.html
 public/pip-label.html
+# wrangler / cloudflare dev cache
+.wrangler/
