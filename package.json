@@ -11,7 +11,8 @@
     "smoke": "node server/smoke.mjs",
     "test:e2e": "playwright test --project=e2e",
     "test:accuracy": "playwright test --project=accuracy",
-    "test:stress": "node tests/stress/robustness.mjs"
+    "test:stress": "node tests/stress/robustness.mjs",
+    "test:all": "pnpm test && pnpm test:e2e && pnpm test:accuracy"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.47.0",
