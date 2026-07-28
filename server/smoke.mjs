@@ -1,39 +1,14 @@
-// server/smoke.mjs — two-client integration smoke against a running `wrangler dev`.
-// Usage: `npx wrangler dev` in one shell, then `node smoke.mjs` in another.
+// server/smoke.mjs — two-client integration smoke against a running dev server.
+// Usage: start the dev server (`pnpm dev` / vite), then
+// `SMOKE_BASE=ws://localhost:5199 node server/smoke.mjs`.
 // Exercises: create+join (manager), second join (player), a full round with
 // turn-ins syncing to both clients, and a reconnect that reclaims the seat.
-import WebSocket from 'ws';
+import { makeClient, isYou, stateWhere } from '../tests/support/ws-client.js';
 
-const BASE = process.env.SMOKE_BASE || 'ws://127.0.0.1:8787';
+const BASE = process.env.SMOKE_BASE || 'ws://localhost:5199';
 const CODE = 'SMOKE' + Math.floor(Math.random() * 900 + 100);
 const assert = (cond, msg) => { if (!cond) { console.error('SMOKE FAIL:', msg); process.exit(1); } };
-
-function client() {
-  const ws = new WebSocket(`${BASE}/api/game/${CODE}/ws`);
-  const inbox = [];
-  const waiters = [];
-  ws.on('message', (d) => {
-    const msg = JSON.parse(d.toString());
-    inbox.push(msg);
-    for (let i = waiters.length - 1; i >= 0; i--) {
-      if (waiters[i].pred(msg)) { clearTimeout(waiters[i].timer); waiters[i].resolve(msg); waiters.splice(i, 1); }
-    }
-  });
-  return {
-    ws,
-    open: () => new Promise((r, j) => { ws.on('open', r); ws.on('error', j); }),
-    send: (m) => ws.send(JSON.stringify(m)),
-    waitFor: (pred, label) => new Promise((resolve, reject) => {
-      const found = inbox.find(pred);
-      if (found) return resolve(found);
-      const timer = setTimeout(() => reject(new Error('timeout: ' + (label || 'msg'))), 5000);
-      waiters.push({ pred, resolve, timer });
-    }),
-  };
-}
-
-const isYou = (m) => m.t === 'you' && m.playerId;
-const stateWhere = (fn) => (m) => m.t === 'state' && fn(m.game);
+const client = () => makeClient(BASE, CODE);
 
 const A = client();
 await A.open();
