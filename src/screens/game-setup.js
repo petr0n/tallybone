@@ -26,7 +26,10 @@ function backChevron(dark, onBack) {
 export function renderHome({ onStartGame, onJoin, onSolo, onRules } = {}) {
   const root = html('<div class="screen screen--light"></div>');
   const hero = el('div');
-  hero.style.cssText = `flex:1;min-height:0;background-image:url(${heroUrl});background-size:cover;background-position:center;background-repeat:no-repeat;`;
+  // contain (not cover) so the splash never clips on shorter phone viewports
+  // (Safari's toolbars shrink the height). The poster shares the app's concrete
+  // texture, so the fitted image blends seamlessly — no visible side-bars.
+  hero.style.cssText = `flex:1;min-height:0;background-image:url(${heroUrl});background-size:contain;background-position:center;background-repeat:no-repeat;`;
   root.appendChild(hero);
 
   const foot = html('<div style="padding:0 20px 40px;display:flex;flex-direction:column;gap:12px;"></div>');
