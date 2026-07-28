@@ -6,7 +6,7 @@ import { domino } from '../components/domino.js';
 import { banner } from '../components/ui.js';
 import { tallyMark } from '../brand.js';
 import { html, el } from '../dom.js';
-import { computeRectifyTransform, warpPerspective, RECT_W, RECT_H } from '../../../scanner/geometry.js';
+import { computeRectifyTransform, warpPerspective, RECT_W, RECT_H } from '../../scanner/geometry.js';
 
 const clamp = (n) => Math.max(0, Math.min(12, n));
 const key = (t) => `${Math.min(t.a, t.b)}-${Math.max(t.a, t.b)}`;

@@ -8,7 +8,7 @@
 // submit, offers New Scan (back to camera, session counter keeps
 // accumulating) or Reload Page.
 
-import { computeRectifyTransform, warpPerspective, RECT_W, RECT_H } from '../../scanner/geometry.js';
+import { computeRectifyTransform, warpPerspective, RECT_W, RECT_H } from '../scanner/geometry.js';
 
 const CONFIDENCE_OK = 0.85;
 

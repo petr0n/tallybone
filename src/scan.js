@@ -2,7 +2,7 @@
 // model assets, and adds a progress callback so the UI never looks frozen
 // during a multi-second multi-tile scan (M2's accepted perf finding: pip
 // counting alone runs ~90-105ms/tile on real hardware).
-import { init, scanImage } from '../../scanner/index.js';
+import { init, scanImage } from '../scanner/index.js';
 
 export async function initScanner() {
   // BASE_URL (Vite env, always trailing-slash) rather than a hardcoded
