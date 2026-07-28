@@ -165,6 +165,8 @@ pnpm dev      # Vite app AND the Worker/Durable Object together — NO separate 
 pnpm test     # vitest (vitest.config.js, see below)
 pnpm build    # production build (Vite + Worker bundle)
 pnpm smoke    # two-client WebSocket smoke against a running `pnpm dev`
+
+pnpm build && npx wrangler deploy    # deploy to tallybone.com — USER-GATED, ask first
 ```
 
 **Dev gotchas (measured here, not guessed):**
@@ -209,10 +211,13 @@ pnpm smoke    # two-client WebSocket smoke against a running `pnpm dev`
   `run_worker_first: ["/api/*"]`, and the `tallybone.com/*` route.
 - `.claude/hooks/js-check.sh` — Stop hook, syntax-checks changed JS/HTML.
 
-**Phase 2 status: the multiplayer backend is BUILT and the client is wired to it.**
-`pnpm test` is green and the 2-client smoke passes under `pnpm dev`. Real deep-link
-join + on-device QR and the tallybone.com deploy are the remaining Phase-2 work (plan
-Tasks 5–6).
+**Phase 2 status: SHIPPED and live at https://tallybone.com** (Workers free plan).
+The multiplayer backend is built, the client is wired to it, the join QR is real
+(vendored on-device encoder in `src/vendor/qrcode.js`, rendered by
+`src/components/qr.js`), and `/?j=CODE` deep links land on Join prefilled.
+`pnpm test` is green; the 2-client smoke passes against both `pnpm dev` and
+production. **Run/deploy details, free-tier limits, and the routing gotchas live in
+[`server/README.md`](server/README.md) — read it before deploying.**
 
 **Protocol (implemented — reference, don't re-derive).**
 Phone→DO: `hello{playerId?,token?}`, `join{name}` (first joiner = manager),
