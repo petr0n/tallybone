@@ -72,12 +72,36 @@ Verified against current Cloudflare docs (2026-07-27):
   `GET /accounts/:id/workers/durable_objects/namespaces`.
 - Free DO limits: 100k requests/day, **13,000 GB-s/day**, 100k SQLite row writes,
   5M row reads, 5 GB storage. Static asset requests are free and unlimited.
-- **WebSocket hibernation is load-bearing for staying free.** A DO holding an
-  open socket without hibernating bills wall-clock time: 24h at 128 MB is ~11,000
-  GB-s, i.e. ~85% of the daily allowance for a *single* game. `game-room.js` uses
-  `ctx.acceptWebSocket()` + the `webSocketMessage`/`webSocketClose` handlers, and
-  the docs state "Billable Duration (GB-s) charges do not accrue during
-  hibernation". Do not refactor to a plain `server.accept()`.
+- **WebSocket hibernation is load-bearing for staying free.** Keep
+  `ctx.acceptWebSocket()` + the `webSocketMessage`/`webSocketClose` handlers in
+  `game-room.js`. **Never refactor to a plain `server.accept()`.** Evidence, kept
+  separate by kind:
+
+  - *Documented (developers.cloudflare.com/durable-objects/platform/pricing, read
+    2026-07-29):* "Duration billing charges for the 128 MB of memory your Durable
+    Object is allocated, regardless of actual usage"; duration "is billed in
+    wall-clock time as long as the Object is active and not eligible for
+    hibernation"; "Calling `accept()` on a WebSocket in an Object will incur
+    duration charges for the entire time the WebSocket is connected"; and
+    "Billable Duration (GB-s) charges do not accrue during hibernation."
+  - *Measured (local workerd, `wrangler dev`, two DO classes, both sockets held
+    open and idle for 150s):* with `ctx.acceptWebSocket()` the instance was
+    evicted within 30s and every later probe saw a freshly constructed object
+    (in-memory age back to ~0s) **while its socket stayed open**. With
+    `server.accept()` the instance's in-memory age tracked wall-clock exactly —
+    30/60/90/120/150s — i.e. continuously resident for the whole idle hold. Since
+    duration is billed for residency, that is the billable difference,
+    reproduced.
+  - *Calculated, NOT measured:* a full day resident at 128 MB is 86,400 s ×
+    0.125–0.128 GB = **10,800–11,059 GB-s, i.e. ~83–85% of the 13,000 GB-s daily
+    free allowance for a single always-connected game.** The range is only the
+    decimal-vs-binary reading of "128 MB". No GB-s figure here has been read off
+    Cloudflare's meters.
+
+  To measure real GB-s, query the GraphQL Analytics API
+  (`durableObjectsPeriodicGroups { sum { activeTime requests } }`). The Wrangler
+  OAuth token cannot do this — it returns `10000 Authentication error`. It needs a
+  scoped API token with **Account Analytics: Read**.
 
 ### Gotcha: a more specific route silently wins
 
