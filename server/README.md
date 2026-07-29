@@ -92,16 +92,40 @@ Verified against current Cloudflare docs (2026-07-27):
     30/60/90/120/150s — i.e. continuously resident for the whole idle hold. Since
     duration is billed for residency, that is the billable difference,
     reproduced.
-  - *Calculated, NOT measured:* a full day resident at 128 MB is 86,400 s ×
-    0.125–0.128 GB = **10,800–11,059 GB-s, i.e. ~83–85% of the 13,000 GB-s daily
-    free allowance for a single always-connected game.** The range is only the
-    decimal-vs-binary reading of "128 MB". No GB-s figure here has been read off
-    Cloudflare's meters.
+  - *Measured in production* (GraphQL Analytics, 2026-07-29). Billing rate, from
+    3 days of real traffic: **0.128000 GB per active-second exactly**
+    (`duration ÷ activeTime` = 1.7688 GB-s ÷ 13.82 s). So "128 MB" is decimal
+    0.128 GB, not 128 MiB — no ambiguity left in the conversion.
+  - *Measured in production:* one socket held open and **idle for 303 s** against
+    a live game accrued **0.523 s of active time (0.17% of the hold) and 0.0670
+    GB-s**. Active time appeared only in the first minute (connect + join +
+    persist) and the last (the close handler) — nothing across the four idle
+    minutes between. Resident for the full 303 s would have been 38.78 GB-s, so
+    hibernation cut billed duration by **~579×** on that hold.
+  - *Therefore, extrapolated from the measured rate:* a single always-connected
+    game that did **not** hibernate would bill 86,400 s × 0.128 GB =
+    **11,059 GB-s/day, 85.1% of the 13,000 GB-s daily free allowance.** The one
+    link still not measured in production is the 100%-residency premise for
+    `accept()` — that is the local workerd result above plus Cloudflare's own
+    statement, since deliberately deploying a non-hibernating DO to production
+    was not worth the burn.
+  - *For scale:* real usage on the heaviest day of development and testing
+    (2026-07-28, every browser run and smoke test) was **1.4505 GB-s — 0.011% of
+    one day's allowance.**
 
-  To measure real GB-s, query the GraphQL Analytics API
-  (`durableObjectsPeriodicGroups { sum { activeTime requests } }`). The Wrangler
-  OAuth token cannot do this — it returns `10000 Authentication error`. It needs a
-  scoped API token with **Account Analytics: Read**.
+  Re-measure with a scoped API token carrying **Account Analytics: Read** (the
+  Wrangler OAuth token returns `10000 Authentication error` here):
+
+  ```graphql
+  durableObjectsPeriodicGroups(limit: 100, filter: {datetime_geq: "…", datetime_leq: "…"}) {
+    sum { duration activeTime cpuTime outboundWebsocketMsgCount }
+    dimensions { datetimeMinute name }
+  }
+  ```
+
+  `duration` is GB-s and `activeTime` is microseconds. Note this dataset has **no
+  `requests` field** (that is on `durableObjectsInvocationsAdaptiveGroups`) — use
+  GraphQL introspection rather than guessing field names.
 
 ### Gotcha: a more specific route silently wins
 
