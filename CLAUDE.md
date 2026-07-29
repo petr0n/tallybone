@@ -139,11 +139,18 @@ already has uncommitted changes.
   typical one.
 - **These are DOUBLE-12 tiles.** Each half holds **0–12 pips**. 91 unique tiles.
   Counting logic must handle the full 0–12 range per half — never assume ≤6.
-- **The pip-grid layout is deterministic and known.** Every half lays pips on one
-  of two grids: **0–9 → 3×3**; **10–12 → 4×3** (top/bottom rows full at 4 each;
-  middle row = 10:2 outer, 11:3 spaced left/centre/right with the centre NOT
-  column-aligned, 12:4). Use this as geometry — render training data from it and
-  validate predicted counts against it.
+- **The pip-grid layout is deterministic and known.**
+  [`src/components/domino.js`](src/components/domino.js) is the reference
+  implementation and `domino.test.js` pins every rule below.
+  **0–9** use the classic grids that fit inside 3×3 — 4 → 2×2, 6 → 2×3,
+  7 → columns 3/1/3, 8 → 3/2/3, 9 → 3×3, and 2/3/5 as diagonals.
+  **10–12** ride **3 columns on one shared 7-row lattice**: outer columns full at
+  4 pips, middle column = 10:2 on the outer rows, 11:3 at top/centre/bottom with
+  the centre pip **NOT row-aligned** with the outer columns, 12:4. A half is
+  square, so this and its 90° transpose describe the same pip set — the app
+  renders the column form. Use it as geometry — render training data from it and
+  validate predicted counts against it; orientation is free, since a
+  photographed tile arrives at any angle.
 - **Tiles NEVER overlap.** They may touch edge-to-edge but never sit on top of each
   other. Detection and synthetic scene generation may rely on this.
 
@@ -175,9 +182,16 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — USER-GATED, a
   `SMOKE_BASE=ws://localhost:<port> pnpm smoke` with `pnpm dev` already up.
 - `vitest.config.js` is deliberately separate from `vite.config.js`: the
   `cloudflare()` plugin expects a real dev/build and throws under the test runner.
-  Its `include` currently scopes `pnpm test` to `server/**/*.test.js` — the
-  `src/**` and `scanner/test/**` suites exist but are **not** in that glob; run them
-  explicitly (`npx vitest run <path>`) or widen the glob deliberately.
+  Its `include` currently scopes `pnpm test` to `server/**/*.test.js` plus the one
+  named file `src/components/domino.test.js` — the rest of `src/**` and
+  `scanner/test/**` exist but are **not** in it; run them explicitly
+  (`npx vitest run <path>`) or widen the glob deliberately. Do **not** glob
+  `src/**`: the other `src` tests (`render`, `camera`, `game-state`, `scan`, `qr`)
+  are plain `node <file>` scripts with no vitest suite, so vitest collects them
+  and fails.
+- The domino test needs a DOM, so it opts into **happy-dom** (a devDependency)
+  with a `// @vitest-environment happy-dom` docblock. It is the only DOM test;
+  everything else runs in `node`.
 - Connecting to any code **auto-creates an empty lobby**, so a typo makes a new game
   rather than an error. Accepted for casual scope.
 - `public/models/` is **gitignored** — `tile.onnx` / `pip.onnx` live only on disk.
