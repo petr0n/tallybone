@@ -72,12 +72,60 @@ Verified against current Cloudflare docs (2026-07-27):
   `GET /accounts/:id/workers/durable_objects/namespaces`.
 - Free DO limits: 100k requests/day, **13,000 GB-s/day**, 100k SQLite row writes,
   5M row reads, 5 GB storage. Static asset requests are free and unlimited.
-- **WebSocket hibernation is load-bearing for staying free.** A DO holding an
-  open socket without hibernating bills wall-clock time: 24h at 128 MB is ~11,000
-  GB-s, i.e. ~85% of the daily allowance for a *single* game. `game-room.js` uses
-  `ctx.acceptWebSocket()` + the `webSocketMessage`/`webSocketClose` handlers, and
-  the docs state "Billable Duration (GB-s) charges do not accrue during
-  hibernation". Do not refactor to a plain `server.accept()`.
+- **WebSocket hibernation is load-bearing for staying free.** Keep
+  `ctx.acceptWebSocket()` + the `webSocketMessage`/`webSocketClose` handlers in
+  `game-room.js`. **Never refactor to a plain `server.accept()`.** Evidence, kept
+  separate by kind:
+
+  - *Documented (developers.cloudflare.com/durable-objects/platform/pricing, read
+    2026-07-29):* "Duration billing charges for the 128 MB of memory your Durable
+    Object is allocated, regardless of actual usage"; duration "is billed in
+    wall-clock time as long as the Object is active and not eligible for
+    hibernation"; "Calling `accept()` on a WebSocket in an Object will incur
+    duration charges for the entire time the WebSocket is connected"; and
+    "Billable Duration (GB-s) charges do not accrue during hibernation."
+  - *Measured (local workerd, `wrangler dev`, two DO classes, both sockets held
+    open and idle for 150s):* with `ctx.acceptWebSocket()` the instance was
+    evicted within 30s and every later probe saw a freshly constructed object
+    (in-memory age back to ~0s) **while its socket stayed open**. With
+    `server.accept()` the instance's in-memory age tracked wall-clock exactly —
+    30/60/90/120/150s — i.e. continuously resident for the whole idle hold. Since
+    duration is billed for residency, that is the billable difference,
+    reproduced.
+  - *Measured in production* (GraphQL Analytics, 2026-07-29). Billing rate, from
+    3 days of real traffic: **0.128000 GB per active-second exactly**
+    (`duration ÷ activeTime` = 1.7688 GB-s ÷ 13.82 s). So "128 MB" is decimal
+    0.128 GB, not 128 MiB — no ambiguity left in the conversion.
+  - *Measured in production:* one socket held open and **idle for 303 s** against
+    a live game accrued **0.523 s of active time (0.17% of the hold) and 0.0670
+    GB-s**. Active time appeared only in the first minute (connect + join +
+    persist) and the last (the close handler) — nothing across the four idle
+    minutes between. Resident for the full 303 s would have been 38.78 GB-s, so
+    hibernation cut billed duration by **~579×** on that hold.
+  - *Therefore, extrapolated from the measured rate:* a single always-connected
+    game that did **not** hibernate would bill 86,400 s × 0.128 GB =
+    **11,059 GB-s/day, 85.1% of the 13,000 GB-s daily free allowance.** The one
+    link still not measured in production is the 100%-residency premise for
+    `accept()` — that is the local workerd result above plus Cloudflare's own
+    statement, since deliberately deploying a non-hibernating DO to production
+    was not worth the burn.
+  - *For scale:* real usage on the heaviest day of development and testing
+    (2026-07-28, every browser run and smoke test) was **1.4505 GB-s — 0.011% of
+    one day's allowance.**
+
+  Re-measure with a scoped API token carrying **Account Analytics: Read** (the
+  Wrangler OAuth token returns `10000 Authentication error` here):
+
+  ```graphql
+  durableObjectsPeriodicGroups(limit: 100, filter: {datetime_geq: "…", datetime_leq: "…"}) {
+    sum { duration activeTime cpuTime outboundWebsocketMsgCount }
+    dimensions { datetimeMinute name }
+  }
+  ```
+
+  `duration` is GB-s and `activeTime` is microseconds. Note this dataset has **no
+  `requests` field** (that is on `durableObjectsInvocationsAdaptiveGroups`) — use
+  GraphQL introspection rather than guessing field names.
 
 ### Gotcha: a more specific route silently wins
 
