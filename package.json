@@ -19,6 +19,7 @@
     "@cloudflare/workers-types": "^5.20260726.1",
     "@playwright/test": "^1.62.0",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "happy-dom": "^20.11.1",
     "vite": "^8.1.1",
     "vitest": "^4.1.10",
     "wrangler": "^4.114.0",
