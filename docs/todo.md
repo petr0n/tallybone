@@ -156,3 +156,41 @@ the bundle hash should be stable on the first try.
 Gotcha for whoever checks this: `curl` on `/assets/*.js` returns **gzip**, so
 grepping the body without `--compressed` finds nothing and looks like a failed
 deploy. It is not.
+
+---
+
+## Camera / viewfinder — closed 2026-07-30
+
+**Resolved.** "The camera is too zoomed on my iPad" was never the camera. The
+viewfinder was `object-fit: cover`, hiding ~74% of the frame on a phone and ~61%
+on an iPad while `captureFullFrame()` scanned all of it — so tiles that were
+already being captured were invisible, and the natural reaction is to back away
+from the table. Confirmed on device: `?fit=contain` "looked right" at normal
+height, and that toggle is pure CSS, which proves the lens and the getUserMedia
+constraints were never at fault. Both the viewfinder and the Review photo now
+show the whole frame. Owner: "the camera is fine, leave it."
+
+**Deliberately not pursued:**
+
+- **`?cam=43` / `?cam=native`.** Whether requesting 16:9 from a natively-4:3 iOS
+  sensor also discards field of view is still unmeasured. It stopped mattering
+  once the preview was honest. The toggles remain in `camera-diag.js` if anyone
+  wants the comparison; `?fit=cover` restores the old full-bleed crop.
+- **Vendoring onnxruntime-web** (currently a CDN `<script>` in index.html).
+  I argued for this on the grounds that it broke the spec's "solo scanning stays
+  fully offline". **That was wrong** — read the next sentence of §2: it means
+  "never opens a socket. Only game sessions go online", i.e. privacy and
+  architecture, not network independence. §11 lists PWA / service-worker offline
+  caching as explicitly OUT of scope. The app is served from tallybone.com, so a
+  network is required to load it at all. What genuinely remains is minor hygiene:
+  an unpinned third-party runtime with no SRI hash in the critical path. Not
+  worth doing on its own.
+
+**Still open, and real:** a WASM `RangeError: out of memory` on the iPad
+("no available backend found"), cleared by a reload, so memory pressure rather
+than a code fault. The lever is capture size — a 4K frame is a 32 MB ImageData
+per scan and the tile detector letterboxes to 640x640 regardless. But the PIP
+stage reads crops at native resolution, so shrinking capture could cost pip
+accuracy, and `pnpm test:accuracy` runs on corpus photos and would NOT catch
+that. Needs a real measurement of pip accuracy at each capture size before any
+change.
