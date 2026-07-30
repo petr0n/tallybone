@@ -58,11 +58,16 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
 
   // captured photo + outline layer
   const photoWrap = html('<div class="rev__photo"></div>');
+  // The stage is the photo's covering rect (see .rev__stage). Canvas AND
+  // outlines go inside it so both share one coordinate space.
+  const stage = html('<div class="rev__stage"></div>');
   if (photoBitmap) {
+    stage.style.setProperty('--photo-ar', `${photoW} / ${photoH}`);
     const canvas = document.createElement('canvas');
     canvas.width = photoW; canvas.height = photoH;
     canvas.getContext('2d').drawImage(photoBitmap, 0, 0);
-    photoWrap.appendChild(canvas);
+    stage.appendChild(canvas);
+    photoWrap.appendChild(stage);
   } else {
     photoWrap.style.display = 'none';
   }
@@ -188,7 +193,7 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
         box.style.top = `${(t.bbox.y / photoH) * 100}%`;
         box.style.width = `${(t.bbox.width / photoW) * 100}%`;
         box.style.height = `${(t.bbox.height / photoH) * 100}%`;
-        photoWrap.insertBefore(box, countPill);
+        stage.appendChild(box);   // stage, not photoWrap: it matches the photo
       });
       countPill.textContent = `${d.live.length} OUTLINED`;
     }
