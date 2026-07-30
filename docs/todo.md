@@ -96,3 +96,30 @@ identity and passes an id in, as it does today.
 - **Real GB-s measurement needs a scoped token.** The Wrangler OAuth token
   cannot read the GraphQL Analytics API (`10000 Authentication error`); it needs
   **Account Analytics: Read**. See `server/README.md` for the query.
+
+---
+
+## Considered and rejected: a "are you sure you want to leave?" dialog
+
+**Decided 2026-07-29.** Asked for, investigated, not built — on purpose.
+
+A `beforeunload` confirmation cannot do the job on this app's primary platform:
+
+- **iOS Safari never fires `beforeunload`.** MDN's own example of when it does not
+  fire is precisely our scenario — visit the page, switch apps, later close the
+  browser from the app manager. A phone-first app at a domino table is exactly
+  that case.
+- The message **cannot be customized** (generic browser wording only), it needs
+  sticky activation, and in Firefox a `beforeunload` listener **disables bfcache**.
+- It would fire on reloads the player intended, which is friction for no gain.
+
+More to the point, the loss it would guard against no longer happens: leaving and
+returning reseats the player (token first, remembered name as fallback), and no
+in-app action drops a seat mid-game. So the effort went into *proving recovery*
+instead — see `tests/e2e/never-lose-your-place.spec.js`, which covers the phone
+locking / app switching (socket killed while offline), the tab being closed and
+reopened, and a completely different device with empty storage.
+
+If a mid-game **Leave the table** affordance is ever added (see the loose end
+above), *that* is where a confirm belongs — our own in-app dialog, which works on
+iOS too, rather than the browser's.

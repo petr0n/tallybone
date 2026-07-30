@@ -10,7 +10,7 @@ locally from the Mac. See the design spec + plan in
 |---|---|---|---|
 | `pnpm test` | **Reducer + components** (vitest) | Pure game rules (13 cases: join/rounds/turn-in/manager auth) + the domino pip layout — 21 cases | seconds |
 | `pnpm test:node` | **Plain-node units** | The 9 `node file.js` suites vitest deliberately skips: `scanner/test/*` (decode, geometry, nms, preprocess), `src/{camera,render,scan,game-state}`, `src/components/qr` — 28 assertions. Fails fast, non-zero on first bad file | seconds |
-| `pnpm test:e2e` | **Gameplay e2e** (Playwright) | Real browsers + real Durable Object: 6-player flagship, reconnect, gating, collision, deep-link, real in-browser scan | ~1–2 min |
+| `pnpm test:e2e` | **Gameplay e2e** (Playwright) | Real browsers + real Durable Object: 6-player flagship, reconnect, gating, collision, deep-link, real in-browser scan, and every way a player leaves and gets their seat back | ~2 min |
 | `pnpm test:accuracy` | **Scanner accuracy** (Playwright) | Labeled corpus hands through the REAL in-browser scanner; per-half accuracy vs a baseline (drift guard) | ~1–2 min |
 | `pnpm test:stress` | **Backend stress** (Node+ws bots) | ~25 concurrent games, reconnect storm, idempotency, soak; reports latency p50/p95 | ~15 s |
 | `pnpm smoke` | Backend smoke | One 2-client round + reconnect | seconds |
