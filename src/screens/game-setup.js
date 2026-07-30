@@ -85,7 +85,7 @@ export function renderRules({ onBack } = {}) {
     `<div style="font-family:var(--font-display);font-size:34px;line-height:1;">${n}</div>` +
     `<div style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:0.12em;margin-top:5px;">${who}</div></div>`)));
   dealCard.appendChild(dealRow);
-  dealCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Whatever is left over is the <strong>boneyard</strong>. Play moves <strong>clockwise</strong> around the table.</div>'));
+  dealCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Whatever is left over is the <strong>boneyard</strong>. Whoever holds the <strong>highest double</strong> starts the game or the round, then play moves <strong>clockwise</strong>.</div>'));
   body.appendChild(dealCard);
 
   const steps = ['The round opens on a starting double. Play it down and run your train.',
@@ -117,6 +117,13 @@ export function renderRules({ onBack } = {}) {
   dblCard.appendChild(dblRow);
   dblCard.appendChild(html('<div style="font-size:14.5px;line-height:1.6;">\u00b7 Can\'t close it? Draw one from the <strong>boneyard</strong> and <strong>skip your next turn</strong>.<br>\u00b7 You can\'t go out on a double \u2014 the last bone you play can never be one.</div>'));
   body.appendChild(dblCard);
+
+  body.appendChild(html(
+    '<div style="background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:16px;box-shadow:var(--shadow-raised);padding:18px;display:flex;flex-direction:column;gap:11px;">' +
+    '<div style="font-family:var(--font-display);font-size:21px;">WHEN YOU CAN\'T PLAY</div>' +
+    '<div style="font-size:14.5px;line-height:1.6;">Draw one from the <strong>boneyard</strong> and put a <strong>marker</strong> on your train.<br><br>' +
+    '\u00b7 While your marker is up, <strong>anyone</strong> can lay on your train.<br>' +
+    '\u00b7 It only comes down when <strong>you</strong> play on your own train.</div></div>'));
 
   const worthCard = html('<div style="background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:16px;box-shadow:var(--shadow-raised);padding:18px;display:flex;flex-direction:column;gap:11px;"><div style="font-family:var(--font-display);font-size:21px;">WHAT A BONE IS WORTH</div></div>');
   const worthRow = html('<div style="display:flex;align-items:center;gap:14px;"></div>');

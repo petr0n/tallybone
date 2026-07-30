@@ -95,6 +95,15 @@ test('the rules cover the table rules players actually ask about', async ({ brow
   await expect(page.getByText(/skip your next turn/i)).toBeVisible();
   await expect(page.getByText(/can.t go out on a double/i)).toBeVisible();
 
+  // Turn order
+  await expect(page.getByText(/highest double/i)).toBeVisible();
+
+  // Markers: the stuck-turn penalty and what it exposes
+  await expect(page.getByText(/WHEN YOU CAN.T PLAY/)).toBeVisible();
+  await expect(page.getByText(/marker/i).first()).toBeVisible();
+  await expect(page.getByText(/anyone/i).first()).toBeVisible();
+  await expect(page.getByText(/your own train/i)).toBeVisible();
+
   // And the scoring exception that started all this
   await expect(page.getByText(/double blank/i).first()).toBeVisible();
 
