@@ -60,17 +60,18 @@ for (const [name, portrait] of [
     const { context, page } = await reviewWithOutlines(browser, { width: 390, height: 844 }, portrait);
     const g = await geom(page);
 
-    // 1. The stage really is the covering rect: it fills the strip in both
-    //    directions and keeps the photo's aspect ratio.
-    expect(g.stage.w).toBeGreaterThanOrEqual(g.wrap.w - 1);
-    expect(g.stage.h).toBeGreaterThanOrEqual(g.wrap.h - 1);
+    // 1. The stage is the CONTAIN rect: the whole photo fits inside the strip,
+    //    at the photo's aspect ratio. Nothing is cropped away, so no tile can be
+    //    hidden at an edge (which is what a 4:3 capture in this 1.88 strip did).
+    expect(g.stage.w).toBeLessThanOrEqual(g.wrap.w + 1);
+    expect(g.stage.h).toBeLessThanOrEqual(g.wrap.h + 1);
     const arStage = g.stage.w / g.stage.h, arPhoto = g.photo.w / g.photo.h;
     expect(Math.abs(arStage - arPhoto)).toBeLessThan(0.02);
 
-    // 2. It is the SMALLEST such rect — i.e. cover, not an arbitrary overflow.
-    //    One dimension must sit flush against the strip.
+    // 2. It is the LARGEST such rect — one dimension flush against the strip,
+    //    so the photo is shown as big as it can be rather than shrunk.
     const flush = Math.abs(g.stage.w - g.wrap.w) < 1.5 || Math.abs(g.stage.h - g.wrap.h) < 1.5;
-    expect(flush, 'stage is the minimal covering rect').toBe(true);
+    expect(flush, 'stage is the maximal fitting rect').toBe(true);
 
     // 3. Structural: the outlines share the photo's coordinate space.
     expect(g.boxes.length).toBeGreaterThan(0);

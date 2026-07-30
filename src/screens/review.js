@@ -62,12 +62,24 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
   // outlines go inside it so both share one coordinate space.
   const stage = html('<div class="rev__stage"></div>');
   if (photoBitmap) {
-    stage.style.setProperty('--photo-ar', `${photoW} / ${photoH}`);
     const canvas = document.createElement('canvas');
     canvas.width = photoW; canvas.height = photoH;
     canvas.getContext('2d').drawImage(photoBitmap, 0, 0);
     stage.appendChild(canvas);
     photoWrap.appendChild(stage);
+    // Fit the WHOLE photo inside the strip (contain) and let the stage BE that
+    // rect, so the outlines' percentage positioning stays exact. Re-run on
+    // resize/rotate; ResizeObserver also fires once on observe, which is what
+    // performs the initial layout.
+    const layoutStage = () => {
+      const cw = photoWrap.clientWidth, ch = photoWrap.clientHeight;
+      if (!cw || !ch) return;
+      const scale = Math.min(cw / photoW, ch / photoH);
+      stage.style.width = `${photoW * scale}px`;
+      stage.style.height = `${photoH * scale}px`;
+    };
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(layoutStage).observe(photoWrap);
+    else { layoutStage(); addEventListener('resize', layoutStage); }
   } else {
     photoWrap.style.display = 'none';
   }
