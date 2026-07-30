@@ -41,10 +41,34 @@ describe('pip layouts', () => {
     expect(sizes.size).toBe(1);
   });
 
-  it('hits the literal 10px pip and 6px/3px padding at the reference size', () => {
+  it('hits the literal 6px/3px padding at the reference size', () => {
     const half = face(12, 64);
-    expect(diameter(half)).toBe(10);
     expect(half.style.padding).toBe('6px 3px');
+  });
+
+  // Pip size is RELATIVE to the tile, not a fixed diameter. A fixed 10px cap was
+  // tried and reverted: it left a 220px half on the Round screen wearing the same
+  // 10px pips as a thumbnail, adrift in empty bone.
+  it('grows pips with the tile, with no upper cap', () => {
+    const sizes = [24, 32, 48, 64, 96, 128, 192, 256];
+    const dots = sizes.map((s) => diameter(face(11, s)));
+    for (let i = 1; i < dots.length; i++) {
+      expect(dots[i], `pip must grow from ${sizes[i - 1]}px to ${sizes[i]}px`)
+        .toBeGreaterThan(dots[i - 1]);
+    }
+    // And it must stay a real fraction of the tile at every size — the check a
+    // constant cap fails, since dot/size collapses as the tile grows.
+    sizes.forEach((s, i) => {
+      expect(dots[i] / s, `pip is a sane fraction of a ${s}px half`).toBeGreaterThan(0.15);
+    });
+  });
+
+  it('leaves ~22% of the pitch as bone between pips', () => {
+    const half = face(11, 128);
+    const rows = Number(half.firstChild.style.gridTemplateRows.match(/repeat\((\d+)/)[1]);
+    const innerH = 128 - parseFloat(half.style.paddingTop) * 2;
+    const pitch = (innerH * 2) / rows;          // adjacent 11-face slots are 2 rows apart
+    expect(diameter(half) / pitch).toBeCloseTo(0.78, 2);
   });
 
   it('never lets pips touch, down to thumbnail sizes', () => {

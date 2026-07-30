@@ -25,8 +25,15 @@ const SPECIAL = {
 // to face: 10, 11 and 12 all ride 11's 7-row lattice.
 const LATTICE = { 10: 6, 11: 6, 12: 6 };
 
-const REF_DOT = 10;      // pip diameter at a 64px half and up
-const CLEARANCE = 1.2;   // px of bone kept between pips — subtractive, not a ratio
+// Pip diameter is RELATIVE: a fraction of the lattice pitch (the centre-to-centre
+// spacing), so pips grow with the tile and a big tile reads as a big domino.
+// 0.78 leaves 22% of the pitch as bone between pips — the original ratio, before
+// a fixed 10px cap was tried. The cap made every tile above ~64px wear the same
+// tiny pips: a 220px half on the Round screen showed 10px dots adrift in space.
+const PIP_RATIO = 0.78;
+// Absolute floor on the gap, for thumbnails where 22% of a small pitch is
+// sub-pixel. Only bites below a ~5.5px pitch; the ratio governs everywhere else.
+const MIN_CLEARANCE = 1.2;
 
 const gcd = (a, b) => (b ? gcd(b, a % b) : a);
 const lcm = (a, b) => (a * b) / gcd(a, b);
@@ -88,8 +95,9 @@ export function domino({
 
   // One pip size for every face at a given tile size — measured off the densest
   // face in the set (11), never off the face being drawn, so a 5/5 and an 11/11
-  // side by side match. Only tiles too small to hold REF_DOT scale down.
-  const dot = Math.max(2, Math.min(REF_DOT, pitch(layout(11), innerW, innerH) - CLEARANCE));
+  // side by side match.
+  const p = pitch(layout(11), innerW, innerH);
+  const dot = Math.max(2, Math.min(p * PIP_RATIO, p - MIN_CLEARANCE));
   const ring = dot * 0.16;
   const inked = dot >= 6; // skip the ink ring/highlight when pips are tiny
   const pipShadow = inked
