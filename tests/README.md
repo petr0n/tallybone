@@ -14,6 +14,7 @@ locally from the Mac. See the design spec + plan in
 | `pnpm test:accuracy` | **Scanner accuracy** (Playwright) | Labeled corpus hands through the REAL in-browser scanner; per-half accuracy vs a baseline (drift guard) | ~1–2 min |
 | `pnpm test:stress` | **Backend stress** (Node+ws bots) | ~25 concurrent games, reconnect storm, idempotency, soak; reports latency p50/p95 | ~15 s |
 | `pnpm smoke` | Backend smoke | One 2-client round + reconnect | seconds |
+| `pnpm test:rejoin` | **Seat reclaim** (Node+ws) | A dropped player rejoining by name reclaims the SAME seat with its score, no duplicate row — and a name still *connected* is refused. Regression for the "locked out of my own game" bug | seconds |
 | `pnpm test:all` | Units + node units + e2e + accuracy | Everything that self-hosts its server | ~3–4 min |
 
 `test:stress` and `smoke` need a dev server up first:
@@ -21,6 +22,7 @@ locally from the Mac. See the design spec + plan in
 ```bash
 pnpm dev                      # or: pnpm exec vite --port 5199 --strictPort
 SMOKE_BASE=ws://localhost:5199 pnpm test:stress
+SMOKE_BASE=ws://localhost:5199 pnpm test:rejoin
 ```
 
 The Playwright tiers (`test:e2e`, `test:accuracy`) start their own dev server on

@@ -13,6 +13,7 @@
     "test:e2e": "playwright test --project=e2e",
     "test:accuracy": "playwright test --project=accuracy",
     "test:stress": "node tests/stress/robustness.mjs",
+    "test:rejoin": "node tests/rejoin.mjs",
     "test:all": "pnpm test && pnpm test:node && pnpm test:e2e && pnpm test:accuracy"
   },
   "devDependencies": {

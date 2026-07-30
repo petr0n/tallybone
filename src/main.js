@@ -108,11 +108,23 @@ window.addEventListener('popstate', () => {
   if (navStack.length > 1) { navStack.pop(); paintTop(); } else { paintTop(); }
 });
 
-function leaveToHome() {
-  net.disconnect();
-  safeDel('tb.active');
+// Two different intentions, previously conflated into one destructive action.
+//
+// `tb.active` is the pointer boot uses to reconnect ("the game I'm seated at").
+// Deleting it is how a player LOSES their game: the seat and its token are still
+// intact, but the app no longer knows which room to return to, so it strands
+// them on Home. Backing out of a live screen must therefore NOT delete it —
+// tapping a header chevron is navigation, not resignation.
+function goHomeKeepingSeat() {
+  net.disconnect();                 // stop following; others see us as away
   snapshot = null; shownPhase = null; routeNextSnapshot = false;
-  navReset(showHome);
+  navReset(showHome);               // tb.active kept: returning reconnects us
+}
+
+// The genuine "I'm done with this game" exit, offered once the game is over.
+function leaveGame() {
+  safeDel('tb.active');
+  goHomeKeepingSeat();
 }
 // Join a game: open the socket + take a seat. Routing to the lobby happens once
 // the server confirms our seat (routeNextSnapshot in the onState handler).
@@ -169,7 +181,7 @@ function showLobby() {
   mount(renderLobby({
     game: view(),
     canManage: net.isManager(),
-    onBack: leaveToHome,
+    onBack: goHomeKeepingSeat,
     onStartRound: () => net.send({ t: 'startRound' }),
     onCopy: () => copyText(joinUrl(view().code)),
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
@@ -179,7 +191,7 @@ function showRound() {
   liveRepaint = showRound;
   mount(renderRound({
     game: view(),
-    onBack: leaveToHome,
+    onBack: goHomeKeepingSeat,
     onScan: () => { scanContext = 'ingame'; ensureScannerThen(() => navGo(showCapture)); },
     onWin: () => { net.send({ t: 'turnIn', total: 0 }); navGo(showStandings); },
     onScores: () => navGo(showStandings),
@@ -221,7 +233,7 @@ function showOver() {
     game: view(),
     canManage: net.isManager(),
     onRunItBack: () => net.send({ t: 'runItBack' }),   // phase -> lobby routes everyone
-    onHome: leaveToHome,
+    onHome: leaveGame,
   }));
 }
 function makeShowGameSubmit(tiles) {
