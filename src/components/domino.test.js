@@ -81,6 +81,21 @@ describe('pip layouts', () => {
     }
   });
 
+  // A real domino's pips turn with the tile: 10/11/12 read 3 across x 4 down
+  // standing up, and 4 across x 3 down on their side. They used to stay 3x4
+  // whichever way the tile was turned. Rendered geometry is checked in the
+  // browser (transforms aren't computed here), so this pins the mechanism.
+  it('turns the pip lattice with the tile', () => {
+    const grid = (vertical) =>
+      halves(domino({ a: 12, b: 12, size: 64, vertical }))[0].firstChild;
+    expect(grid(true).style.transform).not.toMatch(/rotate/);
+    expect(grid(false).style.transform).toMatch(/rotate\(90deg\)/);
+    // and the pips counter-turn, so the highlight lights from the same corner
+    const pip = (vertical) => pips(halves(domino({ a: 12, b: 12, size: 64, vertical }))[0])[0];
+    expect(pip(true).style.transform).not.toMatch(/rotate/);
+    expect(pip(false).style.transform).toMatch(/rotate\(-90deg\)/);
+  });
+
   it('clamps counts to the double-12 set', () => {
     expect(pips(face(0)).length).toBe(0);
     expect(pips(halves(domino({ a: 99, b: -3, size: 64 }))[0]).length).toBe(12);

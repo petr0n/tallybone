@@ -116,19 +116,38 @@ export function domino({
     'flex:none',
   ].join(';');
 
+  // Pips turn with the tile. The lattice is built once, 3 columns by 4 pip rows
+  // (see CLAUDE.md's pip-grid facts), which is how a face reads on a VERTICAL
+  // tile. Lay a tile on its side and a real domino's pips go with it — 10, 11
+  // and 12 then read 4 across by 3 down, "top/bottom rows full at 4 each". They
+  // used to stay 3x4 whichever way the tile was turned.
+  //
+  // Rotating the rendered lattice rather than transposing the data keeps every
+  // rule in layout()/pitch() untouched: same lattice, same pip size, same
+  // cross-face consistency, just turned. The half is square, so the rotated box
+  // lands back inside it — and the 6px/3px insets swap over on their own, which
+  // is what the rotated design wants anyway.
+  const turn = !vertical;
+
   const buildHalf = (L, color) => {
     const cell = document.createElement('div');
     cell.style.cssText =
-      `width:${S}px;height:${S}px;padding:${padY}px ${padX}px;box-sizing:border-box;flex:none;`;
+      `width:${S}px;height:${S}px;padding:${padY}px ${padX}px;box-sizing:border-box;flex:none;position:relative;`;
 
     // minmax(0, 1fr) is required: plain 1fr is minmax(auto, 1fr), so rows honor
     // the auto minimum of the pip inside them — on the 7-row lattice the filled
     // rows would inflate and the empty ones collapse, unevenly spacing face 11.
+    // Centred absolutely at the lattice's own size so the rotation below can
+    // overflow the layout box without being clipped or shrunk.
     const grid = document.createElement('div');
     grid.style.cssText = [
       'display:grid',
-      'width:100%',
-      'height:100%',
+      'position:absolute',
+      'left:50%',
+      'top:50%',
+      `transform:translate(-50%, -50%)${turn ? ' rotate(90deg)' : ''}`,
+      `width:${innerW}px`,
+      `height:${innerH}px`,
       `grid-template-columns:repeat(${Math.max(1, L.cols.length)}, minmax(0, 1fr))`,
       `grid-template-rows:repeat(${L.rows}, minmax(0, 1fr))`,
     ].join(';');
@@ -149,6 +168,9 @@ export function domino({
           'border-radius:50%',
           `background:${color}`,
           `box-shadow:${pipShadow}`,
+          // Counter-turn so the inset highlight keeps lighting from the same
+          // corner on every tile; a circle is otherwise unchanged by this.
+          ...(turn ? ['transform:rotate(-90deg)'] : []),
         ].join(';');
         colEl.appendChild(pip);
       }
