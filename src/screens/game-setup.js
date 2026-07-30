@@ -6,7 +6,7 @@ import { html, el } from '../dom.js';
 import { tallyMark } from '../brand.js';
 import { initials, seated, joinUrl, MAX_SEATS, SEAT_TOKENS } from '../game-state.js';
 import { qr } from '../components/qr.js';
-import { enterIfNew } from '../motion.js';
+import { enterIfNew, homeEntrance } from '../motion.js';
 import { helpIcon } from '../components/ui.js';
 import heroUrl from '../assets/home-hero.png';
 
@@ -27,7 +27,7 @@ function backChevron(dark, onBack) {
 // 06 · Home — the app entry. Two buttons + two quiet actions.
 export function renderHome({ onStartGame, onJoin, onSolo, onRules } = {}) {
   const root = html('<div class="screen screen--light"></div>');
-  const hero = el('div');
+  const hero = el('div', 'home-enter__logo');
   // contain (not cover) so the splash never clips on shorter phone viewports
   // (Safari's toolbars shrink the height). The poster shares the app's concrete
   // texture, so the fitted image blends seamlessly — no visible side-bars.
@@ -35,17 +35,17 @@ export function renderHome({ onStartGame, onJoin, onSolo, onRules } = {}) {
   root.appendChild(hero);
 
   const foot = html('<div style="padding:0 20px 40px;display:flex;flex-direction:column;gap:12px;"></div>');
-  const start = html('<button type="button" class="tb-btn tb-btn--primary tb-press" style="height:60px;font-size:18px;">Start a game</button>');
+  const start = html('<button type="button" class="tb-btn tb-btn--primary tb-press home-enter__row home-enter__row--1" style="height:60px;font-size:18px;">Start a game</button>');
   start.addEventListener('click', onStartGame);
-  const join = html('<button type="button" class="tb-btn tb-btn--secondary tb-press" style="height:60px;font-size:18px;">Join a game</button>');
+  const join = html('<button type="button" class="tb-btn tb-btn--secondary tb-press home-enter__row home-enter__row--2" style="height:60px;font-size:18px;">Join a game</button>');
   join.addEventListener('click', onJoin);
   foot.append(start, join);
   foot.appendChild(html(
-    '<div style="display:flex;align-items:center;gap:12px;padding:8px 0 2px;">' +
+    '<div class="home-enter__row home-enter__row--3" style="display:flex;align-items:center;gap:12px;padding:8px 0 2px;">' +
     '<div style="flex:1;height:3px;background:var(--placeholder-border);"></div>' +
     '<div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;color:var(--secondary-light-1);">OR</div>' +
     '<div style="flex:1;height:3px;background:var(--placeholder-border);"></div></div>'));
-  const quiet = html('<div style="display:flex;align-items:center;justify-content:center;gap:22px;"></div>');
+  const quiet = html('<div class="home-enter__row home-enter__row--4" style="display:flex;align-items:center;justify-content:center;gap:22px;"></div>');
   const solo = html(
     '<div class="tb-press" style="display:flex;align-items:center;gap:9px;cursor:pointer;">' +
     '<div style="width:26px;height:26px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;color:var(--bone);font-family:var(--font-display);font-size:14px;">⌾</div>' +
@@ -59,7 +59,9 @@ export function renderHome({ onStartGame, onJoin, onSolo, onRules } = {}) {
   quiet.append(solo, rules);
   foot.appendChild(quiet);
   root.appendChild(foot);
-  return root;
+  // The poster lands, then the rows come up behind it — once per session, and
+  // only after the hero has decoded. homeEntrance owns both decisions.
+  return homeEntrance(root, heroUrl);
 }
 
 // 15 · How to play

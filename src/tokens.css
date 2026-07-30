@@ -126,16 +126,24 @@
   --r-frame: 40px;
 
   /* --- motion ---
-     Durations stay inside the UI budget (under 300ms) apart from --dur-reveal,
-     which is only for the once-a-session Game Over screen. Press feedback keeps
-     its own 40ms in style.css: it is the highest-frequency motion in the app and
-     anything slower reads as lag. */
+     Durations stay inside the UI budget (under 300ms) with exactly two
+     exceptions, both brand moments you see once rather than responses to a tap:
+     --dur-reveal (the winner, once a game) and the --*-home pair (the entrance
+     on the first Home of a session). Press feedback keeps its own 40ms in
+     style.css: it is the highest-frequency motion in the app and anything slower
+     reads as lag. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --dur-bridge: 140ms;   /* screen changes the player did not ask for */
   --dur-enter: 220ms;    /* something arriving: a seat taken, a row moving */
   --dur-reveal: 320ms;   /* the winner, once a game */
   --stagger: 40ms;
+  /* Home's entrance. The rows travel far enough that --stagger (40ms) reads as
+     "all at once", so they get their own, wider spacing. */
+  --dur-home-logo: 620ms;
+  --dur-home-row: 480ms;
+  --delay-home-rows: 200ms;  /* the first button, measured from the logo's start */
+  --stagger-home: 90ms;
 
   /* --- outline weights --- */
   --ol-hair: 2px;

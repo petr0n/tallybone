@@ -44,6 +44,68 @@ test('reduced motion: nothing slides, and the game still works', async ({ browse
   await dee.context.close();
 });
 
+// --- the Home entrance ------------------------------------------------------
+// A ~950ms sequence is worth it once, on the first Home of a session. Asserted
+// through the classes rather than by catching keyframes mid-flight, which would
+// be a race. What must never happen is Home left un-usable: the rows start
+// hidden while the 1.2MB poster decodes, so every failure path has to end with
+// them visible.
+
+test('the Home entrance plays on the first Home and not on the way back', async ({ browser }) => {
+  const { context, page } = await phone(browser, 'no-preference');
+
+  await expect(page.locator('.home-enter'), 'the first Home of a session animates').toHaveCount(1);
+  await expect(page.locator('.home-enter--armed'), 'armed must be handed off, not left on').toHaveCount(0);
+
+  // Home reaches the rules through its text link, not the header help icon.
+  await page.getByText('How to play').click();
+  await expect(page.getByText('HOW TO PLAY')).toBeVisible();
+  await page.locator('.tb-hicon--chev').first().click();
+  await expect(page.getByRole('button', { name: 'Start a game' })).toBeVisible();
+
+  await expect(page.locator('.home-enter'), 'backing out of Rules must not replay it').toHaveCount(0);
+
+  await context.close();
+});
+
+test('reduced motion: Home appears settled and stays usable', async ({ browser }) => {
+  const { context, page } = await phone(browser, 'reduce');
+
+  await expect(page.locator('.home-enter, .home-enter--armed')).toHaveCount(0);
+  const start = page.getByRole('button', { name: 'Start a game' });
+  await expect(start).toBeVisible();
+  await start.click();
+  await expect(page.getByText('YOUR TABLE IS OPEN'), 'the button still works').toBeVisible();
+
+  await context.close();
+});
+
+test('a poster that never loads still leaves Home usable', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  // The entrance waits on the hero decoding. If it never can, the screen must
+  // settle rather than strand the buttons at opacity 0 behind a bounce that
+  // will never play.
+  // Only the picture fails. In dev, Vite serves the asset *import* from the same
+  // path as a JS module, and killing that would blank the whole app — proving
+  // nothing about the entrance.
+  await page.route('**/home-hero*', (route) =>
+    route.request().resourceType() === 'image' ? route.abort() : route.continue());
+  await page.goto('/');
+
+  const start = page.getByRole('button', { name: 'Start a game' });
+  await expect(start).toBeVisible();
+  await expect(page.locator('.home-enter--armed'), 'never left armed').toHaveCount(0);
+  const hidden = await page.evaluate(() =>
+    [...document.querySelectorAll('.home-enter__row, .home-enter__logo')]
+      .filter((el) => getComputedStyle(el).opacity === '0').length);
+  expect(hidden, 'nothing may be stranded invisible').toBe(0);
+  await start.click();
+  await expect(page.getByText('YOUR TABLE IS OPEN')).toBeVisible();
+
+  await context.close();
+});
+
 test('full motion: the game plays through unchanged', async ({ browser }) => {
   const rosa = await phone(browser, 'no-preference');
   const dee = await phone(browser, 'no-preference');

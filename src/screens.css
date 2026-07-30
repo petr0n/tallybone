@@ -177,8 +177,48 @@
 .msg__errbanner-badge { width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--flare); border: 2.5px solid var(--ink); display: flex; align-items: center; justify-content: center; color: var(--bone); font-family: var(--font-display); font-size: 14px; }
 .msg__errbanner-text { font-size: 13.5px; line-height: 1.4; color: var(--error-text); }
 
+/* ---------- Home entrance ----------
+   The one generous beat before the game starts, on the FIRST Home of a session
+   only — motion.js::homeEntrance owns that decision and adds these classes.
+   `--armed` holds the rows hidden while the hero poster decodes; it is always
+   handed off to `.home-enter` or dropped, never left on. The bounce lives in
+   keyframe overshoot rather than a springy easing curve, so the app keeps one
+   easing token. Transform + opacity only: no layout, no paint. */
+.home-enter--armed .home-enter__logo,
+.home-enter--armed .home-enter__row { opacity: 0; }
+
+@keyframes home-logo {
+  0%   { opacity: 0; transform: translateY(28px) scale(0.72); }
+  45%  { opacity: 1; transform: translateY(-14px) scale(1.08); }
+  68%  { transform: translateY(4px) scale(0.97); }
+  84%  { transform: translateY(-2px) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes home-row {
+  0%   { opacity: 0; transform: translateY(34px); }
+  55%  { opacity: 1; transform: translateY(-9px); }
+  78%  { transform: translateY(3px); }
+  100% { opacity: 1; transform: none; }
+}
+.home-enter .home-enter__logo { animation: home-logo var(--dur-home-logo) var(--ease-out) both; }
+.home-enter .home-enter__row { animation: home-row var(--dur-home-row) var(--ease-out) both; }
+/* One explicit class per row, not nth-of-type: the footer's children are
+   heterogeneous divs, and a positional selector would silently re-target the
+   moment anyone adds a row. */
+.home-enter .home-enter__row--1 { animation-delay: var(--delay-home-rows); }
+.home-enter .home-enter__row--2 { animation-delay: calc(var(--delay-home-rows) + 1 * var(--stagger-home)); }
+.home-enter .home-enter__row--3 { animation-delay: calc(var(--delay-home-rows) + 2 * var(--stagger-home)); }
+.home-enter .home-enter__row--4 { animation-delay: calc(var(--delay-home-rows) + 3 * var(--stagger-home)); }
+
 @media (prefers-reduced-motion: reduce) {
   .scn__march, .scn__bar-fill, .scn__line, .cap__blink { animation: none !important; }
+  /* motion.js refuses the entrance outright, so these classes should never be
+     applied here. Belt and braces: this failure is silent for the people it
+     affects, and a hidden row would be worse than an animated one. */
+  .home-enter--armed .home-enter__logo, .home-enter--armed .home-enter__row,
+  .home-enter .home-enter__logo, .home-enter .home-enter__row {
+    animation: none !important; opacity: 1 !important; transform: none !important;
+  }
   /* tb-bob (the Game Over avatar) and tb-pulse (the scanning tiles) both run
      forever and were not covered here. Both are set as inline styles, hence the
      attribute match. The JS-driven entrances opt out inside motion.js instead. */

@@ -63,6 +63,62 @@ export function enterIfNew(el, group, id, opts) {
 }
 
 /**
+ * May the Home screen play its entrance right now?
+ *
+ * Home is not only the launch screen — main.js re-mounts it on leaving a game
+ * and on every back out of Rules, Create, Join or a scan — so the ~950ms
+ * sequence is spent on the first Home of a session and never again.
+ *
+ * The reduced-motion refusal comes FIRST so it does not spend the identity:
+ * someone who turns the setting off mid-session should still get their
+ * entrance, not silence.
+ */
+export function shouldPlayHomeEntrance() {
+  if (reducedMotion()) return false;
+  return isNew('home', 'entrance');
+}
+
+// How long the entrance will wait for the hero poster before giving up on it.
+const HERO_DECODE_CAP = 700;
+
+/**
+ * Arm and play the Home entrance on `root` (the screen element; the CSS drives
+ * its `.home-enter__*` children).
+ *
+ * The hero is a 1.2MB background image that nothing currently waits for, so the
+ * sequence holds the rows hidden until it has decoded. Bouncing an empty box and
+ * popping the art in afterwards looks broken — worse than no animation.
+ *
+ * Every exit reveals: decoded in time -> animate; too slow, failed, or no
+ * `decode()` -> settle instantly. There is no path that leaves a row hidden.
+ *
+ * @param {Element} root
+ * @param {string} heroSrc  the same hashed asset URL the CSS background uses,
+ *                          so this hits the one cache entry rather than a second
+ *                          download.
+ */
+export function homeEntrance(root, heroSrc) {
+  if (!shouldPlayHomeEntrance()) return root;
+  root.classList.add('home-enter--armed');
+
+  let settled = false;
+  const reveal = (animate) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    root.classList.remove('home-enter--armed');
+    if (animate) root.classList.add('home-enter');
+  };
+  const timer = setTimeout(() => reveal(false), HERO_DECODE_CAP);
+
+  const img = new Image();
+  img.src = heroSrc;
+  const decoded = img.decode ? img.decode() : Promise.reject(new Error('no decode()'));
+  decoded.then(() => reveal(true), () => reveal(false));
+  return root;
+}
+
+/**
  * FLIP a set of rows that are about to be re-ordered by a full re-render.
  *
  * Standings re-sort under the player's eyes as scores land, and with nothing
