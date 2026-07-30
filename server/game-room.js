@@ -52,7 +52,26 @@ export class GameRoom extends DurableObject {
 
     // Take a seat: the DO mints the id + token (keeps the reducer pure).
     if (msg.t === 'join') {
-      const playerId = 'p_' + crypto.randomUUID().slice(0, 8);
+      // RECLAIM BY NAME. A seat whose player is not currently connected can be
+      // walked back into by re-entering the same name. Without this, a player
+      // who loses their identity token (cleared storage, a new phone, or the
+      // app forgetting which game it was in) is locked out of their OWN game:
+      // their still-seated name fails the reducer's name_taken check under a
+      // freshly minted id, with no path back. The Join screen already promises
+      // "Been here before? Same code puts you back in your seat."
+      //
+      // Only DISCONNECTED seats are reclaimable, so a name in active use is
+      // still protected. The 5-char code remains the only gate, per the
+      // casual/friends trust tier locked in the Phase-2 spec.
+      const wanted = (msg.name || '').trim().toLowerCase();
+      const live = this.connectedIds();
+      const reclaim = wanted && this.game && this.game.players.find(
+        (p) => !p.removed && p.name.trim().toLowerCase() === wanted && !live.has(p.id));
+
+      // Reusing the seat's id makes the reducer's `x.id !== intent.id` exclusion
+      // skip their own row, so name_taken no longer fires and the existing
+      // scores are kept (reducer only initialises scores for a brand-new id).
+      const playerId = reclaim ? reclaim.id : 'p_' + crypto.randomUUID().slice(0, 8);
       const token = crypto.randomUUID();
       const { game, error } = applyIntent(this.game, { t: 'join', id: playerId, name: msg.name }, playerId);
       if (error) return send(ws, { t: 'error', code: error });
