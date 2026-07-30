@@ -5,6 +5,7 @@ import { domino } from '../components/domino.js';
 import { html, el } from '../dom.js';
 import { handTotal } from '../scoring.js';
 import { enter, enterIfNew } from '../motion.js';
+import { helpIcon } from '../components/ui.js';
 import { tallyMark } from '../brand.js';
 import { initials, seated, scoredPlayers, ranked, finalRanked, SEAT_TOKENS } from '../game-state.js';
 
@@ -17,27 +18,29 @@ function backChevron(dark, onBack) {
   if (onBack) c.addEventListener('click', onBack);
   return c;
 }
-function darkHeader(overline, title, onBack) {
+function darkHeader(overline, title, onBack, onHelp) {
   const h = html('<div style="background:var(--ink);color:var(--bone);padding:14px 20px 16px;display:flex;align-items:center;gap:12px;flex:none;"></div>');
   h.appendChild(backChevron(true, onBack));
   h.appendChild(tallyMark(36));
   h.appendChild(html(`<div style="flex:1;display:flex;flex-direction:column;gap:1px;"><div class="tb-hoverline">${overline}</div><div class="tb-htext" style="color:var(--bone);">${title}</div></div>`));
+  if (onHelp) h.appendChild(helpIcon(true, onHelp));
   return h;
 }
-function lightHeader(overline, title, onBack) {
+function lightHeader(overline, title, onBack, onHelp) {
   const h = html('<div style="background:var(--bone);border-bottom:var(--ol-base) solid var(--ink);padding:14px 20px;display:flex;align-items:center;gap:12px;flex:none;"></div>');
   h.appendChild(backChevron(false, onBack));
   h.appendChild(tallyMark(36));
   h.appendChild(html(
     `<div style="flex:1;display:flex;flex-direction:column;gap:1px;">${overline ? `<div style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:0.2em;color:var(--secondary-light-1);">${overline}</div>` : ''}<div class="tb-htext">${title}</div></div>`));
+  if (onHelp) h.appendChild(helpIcon(false, onHelp));
   return h;
 }
 
 // 10 · Round
-export function renderRound({ game, onBack, onScan, onWin, onScores } = {}) {
+export function renderRound({ game, onBack, onScan, onWin, onScores, onRules } = {}) {
   const dn = game.currentDouble;
   const root = html('<div class="screen screen--light"></div>');
-  const header = lightHeader(`TABLE ${game.code}`, `ROUND ${game.roundNum}`, onBack);
+  const header = lightHeader(`TABLE ${game.code}`, `ROUND ${game.roundNum}`, onBack, onRules);
   const scores = html('<div class="tb-press" style="cursor:pointer;font-weight:700;font-size:14px;border-bottom:2.5px solid var(--ink);">Scores</div>');
   scores.addEventListener('click', onScores);
   header.appendChild(scores);
@@ -80,11 +83,11 @@ export function renderRound({ game, onBack, onScan, onWin, onScores } = {}) {
 // 11 · Submit round score. tiles/total from the in-game scan (fallback seed if
 // navigated directly).
 const SEED_TILES = [{ a: 9, b: 4 }, { a: 6, b: 11 }, { a: 12, b: 0 }, { a: 5, b: 8 }, { a: 2, b: 2 }, { a: 3, b: 1 }];
-export function renderSubmit({ game, tiles, onBack, onTurnIn, onChangeRead } = {}) {
+export function renderSubmit({ game, tiles, onBack, onTurnIn, onChangeRead, onRules } = {}) {
   const list = (tiles && tiles.length ? tiles : SEED_TILES);
   const total = handTotal(list);   // never a bare pip sum: the 0/0 scores 40
   const root = html('<div class="screen screen--light"></div>');
-  root.appendChild(darkHeader(`ROUND ${game.roundNum} · LAST LOOK`, 'TURN IN YOUR SCORE', onBack));
+  root.appendChild(darkHeader(`ROUND ${game.roundNum} · LAST LOOK`, 'TURN IN YOUR SCORE', onBack, onRules));
 
   const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:14px;"></div>');
   body.appendChild(html(
@@ -122,11 +125,11 @@ export function renderSubmit({ game, tiles, onBack, onTurnIn, onChangeRead } = {
 }
 
 // 12 · Standings
-export function renderStandings({ game, canManage, onBack, onManager, onStartNext, onDetail } = {}) {
+export function renderStandings({ game, canManage, onBack, onManager, onStartNext, onDetail, onRules } = {}) {
   const rows = ranked(game);
   const pending = rows.filter((p) => p.total === null);
   const root = html('<div class="screen screen--light"></div>');
-  const header = lightHeader(`TABLE ${game.code} · AFTER ROUND ${game.roundNum}`, 'STANDINGS', onBack);
+  const header = lightHeader(`TABLE ${game.code} · AFTER ROUND ${game.roundNum}`, 'STANDINGS', onBack, onRules);
   if (canManage) {
     const gear = html('<div class="tb-press" style="cursor:pointer;width:44px;height:44px;flex:none;border:2.5px solid var(--ink);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-weight:800;font-size:20px;line-height:1;">⚙</div>');
     gear.addEventListener('click', onManager);
@@ -179,9 +182,9 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
 }
 
 // 13 · Manager controls
-export function renderManager({ game, onBack, onStartNext, onReopen, onRemove, onCallGame } = {}) {
+export function renderManager({ game, onBack, onStartNext, onReopen, onRemove, onCallGame, onRules } = {}) {
   const root = html('<div class="screen screen--light"></div>');
-  root.appendChild(darkHeader('ONLY YOU SEE THIS', 'MANAGER CONTROLS', onBack));
+  root.appendChild(darkHeader('ONLY YOU SEE THIS', 'MANAGER CONTROLS', onBack, onRules));
   const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:20px;"></div>');
 
   const roundSec = html('<div style="display:flex;flex-direction:column;gap:11px;flex:none;"><div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.2em;color:var(--secondary-light-1);">THE ROUND</div></div>');
@@ -222,7 +225,7 @@ export function renderManager({ game, onBack, onStartNext, onReopen, onRemove, o
 }
 
 // 14 · Game over
-export function renderOver({ game, canManage, onRunItBack, onHome } = {}) {
+export function renderOver({ game, canManage, onRunItBack, onHome, onRules } = {}) {
   const rows = finalRanked(game);
   const winner = rows[0];
   const root = html('<div class="screen screen--ink"></div>');
@@ -235,6 +238,14 @@ export function renderOver({ game, canManage, onRunItBack, onHome } = {}) {
   const win = html('<div style="flex:none;padding:22px 20px 18px;display:flex;flex-direction:column;align-items:center;gap:12px;"></div>');
   win.appendChild(html(`<div style="width:96px;height:96px;border-radius:50%;background:var(--sky);border:4px solid var(--bone);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:38px;color:var(--ink);animation:tb-bob 3.6s ease-in-out infinite;">${initials(winner.name)}</div>`));
   win.appendChild(html(`<div style="font-family:var(--font-display);font-size:34px;color:var(--bone);letter-spacing:0.02em;">${winner.name.toUpperCase()} TAKES IT</div>`));
+  // No header on this screen, so the rules get their own corner rather than
+  // being the one place in the app you cannot reach them from.
+  if (onRules) {
+    const help = helpIcon(true, onRules);
+    help.style.cssText += 'position:absolute;top:16px;right:20px;z-index:2;';
+    root.style.position = root.style.position || 'relative';
+    root.appendChild(help);
+  }
   // Rare + high emotion: this is where the delight budget belongs. Once per
   // game, keyed on the winner so a re-render doesn't replay it.
   enterIfNew(win, 'over', winner.id, { from: 'scale(0.96)', duration: 'var(--dur-reveal)' });
@@ -266,12 +277,12 @@ export function renderOver({ game, canManage, onRunItBack, onHome } = {}) {
 
 // Choose-the-next-double picker (manager only). Pre-selects the suggested
 // step-down but any 0–12 double can be picked (open on whatever's in a hand).
-export function renderPickDouble({ game, suggested, onBack, onConfirm } = {}) {
+export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules } = {}) {
   const nextRound = game.roundNum + 1;
   let selected = suggested ?? 0;
 
   const root = html('<div class="screen screen--light"></div>');
-  root.appendChild(lightHeader(`ROUND ${nextRound}`, 'CHOOSE THE DOUBLE', onBack));
+  root.appendChild(lightHeader(`ROUND ${nextRound}`, 'CHOOSE THE DOUBLE', onBack, onRules));
 
   const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:16px;"></div>');
   body.appendChild(html(

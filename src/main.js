@@ -188,6 +188,7 @@ function showCreate() {
     // it's the "can't scan, text it to me instead" path. The code itself is on
     // screen in 58px tiles for reading aloud.
     onCopy: () => { copyText(joinUrl(createDraft.code)); createDraft.copied = true; navSwap(showCreate); },
+    onRules: () => navGo(showRules),
     onOpen: () => enterGame(createDraft.code, (createDraft.managerName || '').trim() || 'Manager'),
   }));
 }
@@ -197,6 +198,7 @@ function showJoin() {
     prefillName: joinName || net.rememberedName() || '',
     error: joinError,
     onBack: navBack,
+    onRules: () => navGo(showRules),
     onJoin: (code, name) => { joinError = ''; joinPrefill = code; joinName = name; enterGame(code, name); },
   }));
 }
@@ -206,6 +208,7 @@ function showLobby() {
     game: view(),
     canManage: net.isManager(),
     onBack: goHomeKeepingSeat,
+    onRules: () => navGo(showRules),
     onStartRound: () => net.send({ t: 'startRound' }),
     onCopy: () => copyText(joinUrl(view().code)),
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
@@ -216,6 +219,7 @@ function showRound() {
   mount(renderRound({
     game: view(),
     onBack: goHomeKeepingSeat,
+    onRules: () => navGo(showRules),
     onScan: () => { scanContext = 'ingame'; ensureScannerThen(() => navGo(showCapture)); },
     onWin: () => { net.send({ t: 'turnIn', total: 0 }); navGo(showStandings); },
     onScores: () => navGo(showStandings),
@@ -226,6 +230,7 @@ function showPickDouble() {
     game: view(),
     suggested: suggestedNextDouble(view()),
     onBack: navBack,
+    onRules: () => navGo(showRules),
     onConfirm: (d) => net.send({ t: 'pickDouble', d }), // phase -> round routes everyone
   }));
 }
@@ -245,6 +250,7 @@ function showStandings() {
     game: view(),
     canManage: net.isManager(),
     onBack: navBack,
+    onRules: () => navGo(showRules),
     onManager: () => navGo(showManager),
     onStartNext: () => navGo(showPickDouble),
     onDetail: () => navGo(makeShowGameSubmit(lastScan ? lastScan.tiles : null)),
@@ -257,6 +263,7 @@ function showManager() {
     game: view(),
     onBack: navBack,
     onStartNext: () => navGo(showPickDouble),
+    onRules: () => navGo(showRules),
     onReopen: () => net.send({ t: 'reopenRound' }),   // phase -> round routes everyone
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
     onCallGame: () => net.send({ t: 'callGame' }),     // phase -> over routes everyone
@@ -267,6 +274,7 @@ function showOver() {
   mount(renderOver({
     game: view(),
     canManage: net.isManager(),
+    onRules: () => navGo(showRules),
     onRunItBack: () => net.send({ t: 'runItBack' }),   // phase -> lobby routes everyone
     onHome: leaveGame,
   }));
@@ -277,7 +285,8 @@ function makeShowGameSubmit(tiles) {
       game: view(), tiles,
       onBack: navBack,
       onChangeRead: () => { if (lastScan) navGo(makeShowReview(lastScan)); else navBack(); },
-      onTurnIn: (total) => { net.send({ t: 'turnIn', total }); navGo(showStandings); },
+      onRules: () => navGo(showRules),
+    onTurnIn: (total) => { net.send({ t: 'turnIn', total }); navGo(showStandings); },
     }));
   };
 }
@@ -300,6 +309,7 @@ function ensureScannerThen(cb) {
 function showCapture() {
   const cap = renderCapture({
     onShutter: doScan,
+    onHelp: () => navGo(showRules),
     onUpload: photoFallback ? doUpload : null,
     onBack: navBack,
   });
@@ -371,6 +381,7 @@ function makeShowReview(scan) {
       sourceImageData: scan.sourceImageData,
       photoW: scan.photoW, photoH: scan.photoH,
       onBack: navBack,
+      onRules: () => navGo(showRules),
       onSubmit: (total, corrected) => {
         if (ENABLE_CORPUS_CAPTURE) { /* TODO: post corrected payload to /api/handscan */ }
         if (scanContext === 'ingame') navGo(makeShowGameSubmit(corrected));

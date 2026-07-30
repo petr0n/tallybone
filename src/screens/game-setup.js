@@ -7,6 +7,7 @@ import { tallyMark } from '../brand.js';
 import { initials, seated, joinUrl, MAX_SEATS, SEAT_TOKENS } from '../game-state.js';
 import { qr } from '../components/qr.js';
 import { enterIfNew } from '../motion.js';
+import { helpIcon } from '../components/ui.js';
 import heroUrl from '../assets/home-hero.png';
 
 // A REAL, scannable QR of the game's deep link, encoded on device. Scanning it
@@ -122,7 +123,7 @@ export function renderRules({ onBack } = {}) {
 }
 
 // 07 · Create game (ink screen)
-export function renderCreate({ game, onBack, onOpen, onNewCode, onCopy, onName } = {}) {
+export function renderCreate({ game, onBack, onOpen, onNewCode, onCopy, onName, onRules } = {}) {
   const root = html('<div class="screen screen--ink"></div>');
   const header = html('<div style="padding:16px 20px 0;display:flex;align-items:center;gap:14px;flex:none;"></div>');
   header.appendChild(backChevron(true, onBack));
@@ -131,6 +132,7 @@ export function renderCreate({ game, onBack, onOpen, onNewCode, onCopy, onName }
     '<div style="flex:1;display:flex;flex-direction:column;gap:1px;">' +
     '<div class="tb-hoverline">YOU\'RE THE MANAGER</div>' +
     '<div class="tb-htext" style="color:var(--bone);">YOUR TABLE IS OPEN</div></div>'));
+  if (onRules) header.appendChild(helpIcon(true, onRules));
   root.appendChild(header);
 
   const mid = html('<div style="flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:16px 24px;"></div>');
@@ -182,7 +184,7 @@ export function renderCreate({ game, onBack, onOpen, onNewCode, onCopy, onName }
 // and Join button IN PLACE so typing never loses focus. onJoin(code, name) fires
 // when a 5-char lookalike-free code + a non-empty name are entered. A duplicate
 // name is caught server-side and surfaced via the `error` prop on re-render.
-export function renderJoin({ onBack, onJoin, prefillCode = '', prefillName = '', error = '' } = {}) {
+export function renderJoin({ onBack, onJoin, prefillCode = '', prefillName = '', error = '', onRules } = {}) {
   let entry = (prefillCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
   let name = prefillName || '';
 
@@ -191,6 +193,7 @@ export function renderJoin({ onBack, onJoin, prefillCode = '', prefillName = '',
   header.appendChild(backChevron(false, onBack));
   header.appendChild(tallyMark(36));
   header.appendChild(html('<div class="tb-htext" style="flex:1;">JOIN A TABLE</div>'));
+  if (onRules) header.appendChild(helpIcon(false, onRules));
   root.appendChild(header);
 
   const body = html('<div style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:26px;padding:28px 20px 0;"></div>');
@@ -287,13 +290,14 @@ function errBanner(htmlText) {
 }
 
 // 09 · Lobby
-export function renderLobby({ game, canManage, onBack, onStartRound, onCopy, onRemove } = {}) {
+export function renderLobby({ game, canManage, onBack, onStartRound, onCopy, onRemove, onRules } = {}) {
   const players = seated(game);
   const root = html('<div class="screen screen--light"></div>');
   const header = html('<div style="background:var(--ink);color:var(--bone);padding:14px 20px 16px;display:flex;align-items:center;gap:13px;flex:none;"></div>');
   header.appendChild(backChevron(true, onBack));
   header.appendChild(tallyMark(36));
   header.appendChild(html('<div style="flex:1;display:flex;flex-direction:column;gap:1px;"><div class="tb-hoverline">WAITING ROOM</div><div class="tb-htext" style="color:var(--bone);">THE TABLE</div></div>'));
+  if (onRules) header.appendChild(helpIcon(true, onRules));
   root.appendChild(header);
 
   const codeStrip = html('<div class="tb-press" style="flex:none;cursor:pointer;background:var(--ink);padding:0 20px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;"></div>');

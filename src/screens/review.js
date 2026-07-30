@@ -37,7 +37,7 @@ function tileCropUrl(sourceImageData, corners) {
 
 // tiles: [{ a, b, conf, bbox?, corners? }]. photoBitmap + sourceImageData +
 // photoW/H optional (absent for manual entry). onSubmit(total, tiles), onBack().
-export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, photoH, onSubmit, onBack } = {}) {
+export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, photoH, onSubmit, onBack, onRules } = {}) {
   const items = (tiles || []).map((t, i) => ({
     id: i, a: clamp(t.a | 0), b: clamp(t.b | 0), conf: t.conf === 'check' ? 'check' : 'ok',
     dismissed: false, bbox: t.bbox || null, cropUrl: tileCropUrl(sourceImageData, t.corners),
@@ -55,6 +55,8 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
     '<div class="tb-htitle"><div class="tb-hoverline">STEP 2 OF 2</div><div class="tb-htext">REVIEW YOUR BONES</div></div>' +
     '<div class="tb-hicon tb-hicon--q" style="border-color:var(--bone);color:var(--bone);">?</div></div>');
   if (onBack) header.querySelector('.tb-hicon--chev').addEventListener('click', onBack);
+  // The '?' was drawn but wired to nothing.
+  if (onRules) header.querySelector('.tb-hicon--q').addEventListener('click', onRules);
   header.insertBefore(tallyMark(34), header.querySelector('.tb-htitle'));
   root.appendChild(header);
 

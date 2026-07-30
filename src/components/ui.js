@@ -118,3 +118,19 @@ export function bottomBar({ totalLabel, total, blocked = false, button: btn, hel
   if (helper) bar.appendChild(el('div', 'tb-bottombar__helper', helper));
   return bar;
 }
+
+// The rules must be reachable from wherever you are. Every screen header carries
+// this; it was previously only a quiet link on Home, which is no use once a game
+// is under way and someone asks "wait, what does the double blank score?".
+export function helpIcon(dark, onHelp) {
+  const c = document.createElement('div');
+  c.className = 'tb-hicon tb-hicon--q tb-press';
+  c.textContent = '?';
+  c.setAttribute('role', 'button');
+  c.setAttribute('aria-label', 'How to play');
+  c.style.borderColor = dark ? 'var(--bone)' : 'var(--ink)';
+  c.style.color = dark ? 'var(--bone)' : 'var(--ink)';
+  c.style.cursor = 'pointer';
+  if (onHelp) c.addEventListener('click', onHelp);
+  return c;
+}
