@@ -179,4 +179,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .scn__march, .scn__bar-fill, .scn__line, .cap__blink { animation: none !important; }
+  /* tb-bob (the Game Over avatar) and tb-pulse (the scanning tiles) both run
+     forever and were not covered here. Both are set as inline styles, hence the
+     attribute match. The JS-driven entrances opt out inside motion.js instead. */
+  [style*="tb-bob"], [style*="tb-pulse"] { animation: none !important; }
 }

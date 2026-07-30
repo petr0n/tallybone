@@ -5,6 +5,7 @@
 import { domino } from '../components/domino.js';
 import { banner } from '../components/ui.js';
 import { handTotal, tilePoints, countsAsDoubleBlank } from '../scoring.js';
+import { enterIfNew } from '../motion.js';
 import { tallyMark } from '../brand.js';
 import { html, el } from '../dom.js';
 import { computeRectifyTransform, warpPerspective, RECT_W, RECT_H } from '../../scanner/geometry.js';
@@ -43,6 +44,8 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
     scanned: Boolean(t.bbox || t.corners), touched: false,
   }));
   let nextId = items.length;
+  // A fresh Review screen is a fresh scan, so its outlines get their own group.
+  const scanGroup = `scan:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
 
   const root = html('<div class="rev"></div>');
 
@@ -206,13 +209,20 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
     // photo outlines (redraw) + count pill
     photoWrap.querySelectorAll('.rev__box').forEach((b) => b.remove());
     if (photoBitmap) {
-      items.filter((t) => !t.dismissed && t.bbox).forEach((t) => {
+      items.filter((t) => !t.dismissed && t.bbox).forEach((t, i) => {
         const box = el('div', d.isDup(t) ? 'rev__box rev__box--dup' : (t.conf === 'check' ? 'rev__box rev__box--check' : 'rev__box'));
         box.style.left = `${(t.bbox.x / photoW) * 100}%`;
         box.style.top = `${(t.bbox.y / photoH) * 100}%`;
         box.style.width = `${(t.bbox.width / photoW) * 100}%`;
         box.style.height = `${(t.bbox.height / photoH) * 100}%`;
         stage.appendChild(box);   // stage, not photoWrap: it matches the photo
+        // Outlines land one after another rather than all at once. Keyed per
+        // scan+tile, so nudging a stepper (which re-renders everything) does
+        // not replay it; capped so a big hand never crawls.
+        enterIfNew(box, scanGroup, t.id, {
+          from: 'scale(0.97)', duration: 'var(--dur-bridge)',
+          delay: Math.min(i, 5) * 40,
+        });
       });
       countPill.textContent = `${d.live.length} OUTLINED`;
     }

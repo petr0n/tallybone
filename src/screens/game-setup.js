@@ -6,6 +6,7 @@ import { html, el } from '../dom.js';
 import { tallyMark } from '../brand.js';
 import { initials, seated, joinUrl, MAX_SEATS, SEAT_TOKENS } from '../game-state.js';
 import { qr } from '../components/qr.js';
+import { enterIfNew } from '../motion.js';
 import heroUrl from '../assets/home-hero.png';
 
 // A REAL, scannable QR of the game's deep link, encoded on device. Scanning it
@@ -318,6 +319,10 @@ export function renderLobby({ game, canManage, onBack, onStartRound, onCopy, onR
     const bw = p.you ? 4 : 3;
     const bc = p.you ? 'var(--sky)' : 'var(--ink)';
     const row = html(`<div style="display:flex;align-items:center;gap:12px;background:var(--bone);border:${bw}px solid ${bc};border-radius:14px;box-shadow:var(--shadow-raised);padding:12px 14px;flex:none;"></div>`);
+    // Someone taking a seat should arrive, not blink into existence. Keyed on
+    // the player id: the lobby re-renders on every snapshot, so anything keyed
+    // to insertion would replay for the whole table each time.
+    enterIfNew(row, 'lobby', p.id);
     row.appendChild(html(`<div style="width:44px;height:44px;flex:none;border-radius:50%;background:${SEAT_TOKENS[i % SEAT_TOKENS.length]};border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:19px;">${initials(p.name)}</div>`));
     row.appendChild(html(`<div style="flex:1;display:flex;flex-direction:column;gap:2px;"><div style="font-weight:700;font-size:17px;">${p.name}</div><div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;color:${badgeFg};">${badge}</div></div>`));
     if (canManage && !p.manager) {

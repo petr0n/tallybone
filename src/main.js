@@ -24,6 +24,7 @@ import { brandLockup } from './brand.js';
 import { html } from './dom.js';
 import { isIOS, isIOSNonSafari } from './platform.js';
 import * as net from './net.js';
+import { measure, play, enter, resetGroup, reducedMotion } from './motion.js';
 
 // On iOS every browser is WebKit; the live camera (getUserMedia) is unreliable
 // outside Safari, so always offer the native photo-capture path there.
@@ -63,12 +64,12 @@ net.onState((g) => {
     routeNextSnapshot = false;
     safeSet('tb.active', net.whoami().code);    // remember the game for reload-reconnect
     shownPhase = g.phase;
-    navReset(PHASE_SCREEN[g.phase] || showHome);
+    navResetFromServer(PHASE_SCREEN[g.phase] || showHome);
     return;
   }
   if (AUTO_NAV.has(g.phase) && g.phase !== shownPhase) {
     shownPhase = g.phase;
-    navReset(PHASE_SCREEN[g.phase]);
+    navResetFromServer(PHASE_SCREEN[g.phase]);
     return;
   }
   shownPhase = g.phase;
@@ -109,6 +110,16 @@ function mount(node) {
 const navStack = [];
 function paintTop() { liveRepaint = null; const s = navStack[navStack.length - 1]; if (s) s(); }
 function navReset(show) { liveRepaint = null; navStack.length = 0; navStack.push(show); history.replaceState({ n: 1 }, ''); show(); }
+// The server can move every phone at once — the manager starts a round and your
+// screen changes without you touching anything. That deserves a bridge. Taps you
+// made yourself do NOT: they are frequent and already feel direct, and a delay
+// there reads as lag.
+function navResetFromServer(show) {
+  navReset(show);
+  if (!reducedMotion() && root.firstElementChild) {
+    enter(root.firstElementChild, { from: 'translateY(6px)', duration: 'var(--dur-bridge)' });
+  }
+}
 function navGo(show) { liveRepaint = null; navStack.push(show); history.pushState({ n: navStack.length }, ''); show(); }
 function navSwap(show) { liveRepaint = null; navStack[navStack.length - 1] = show; show(); }
 function navBack() { history.back(); }
@@ -126,6 +137,7 @@ window.addEventListener('popstate', () => {
 // tapping a header chevron is navigation, not resignation.
 function goHomeKeepingSeat() {
   net.disconnect();                 // stop following; others see us as away
+  resetGroup('lobby');              // next table's seats animate in afresh
   safeSet('tb.away', '1');          // deliberate: don't hijack the next load
   snapshot = null; shownPhase = null; routeNextSnapshot = false;
   navReset(showHome);               // tb.active kept: the seat is still ours
@@ -217,8 +229,18 @@ function showPickDouble() {
     onConfirm: (d) => net.send({ t: 'pickDouble', d }), // phase -> round routes everyone
   }));
 }
+// Rows re-sort as scores land. Measure where each player's row IS, let the
+// screen re-render, then hand the new nodes their old position so they travel
+// to the new one — otherwise the order changes silently under the reader.
+const rowsById = () => {
+  const m = new Map();
+  document.querySelectorAll('[data-pid]').forEach((el) => m.set(el.dataset.pid, el));
+  return m;
+};
+
 function showStandings() {
   liveRepaint = showStandings;
+  const before = measure(rowsById());
   mount(renderStandings({
     game: view(),
     canManage: net.isManager(),
@@ -227,6 +249,7 @@ function showStandings() {
     onStartNext: () => navGo(showPickDouble),
     onDetail: () => navGo(makeShowGameSubmit(lastScan ? lastScan.tiles : null)),
   }));
+  play(before, rowsById());
 }
 function showManager() {
   liveRepaint = showManager;

@@ -4,6 +4,7 @@
 import { domino } from '../components/domino.js';
 import { html, el } from '../dom.js';
 import { handTotal } from '../scoring.js';
+import { enter, enterIfNew } from '../motion.js';
 import { tallyMark } from '../brand.js';
 import { initials, seated, scoredPlayers, ranked, finalRanked, SEAT_TOKENS } from '../game-state.js';
 
@@ -149,7 +150,9 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
     const subFg = leader ? 'var(--link)' : 'var(--secondary-light-1)';
     const totalFg = p.total === null ? 'var(--disabled-text)' : 'var(--ink)';
     body.appendChild(html(
-      `<div style="display:flex;align-items:center;gap:12px;background:${rowBg};border:${bw}px solid ${bc};border-radius:14px;box-shadow:${shadow};padding:12px 14px;flex:none;">` +
+      // data-pid lets main.js match this row to its previous position and FLIP
+      // it, so a re-sort reads as movement rather than a silent jump.
+      `<div data-pid="${p.id}" style="display:flex;align-items:center;gap:12px;background:${rowBg};border:${bw}px solid ${bc};border-radius:14px;box-shadow:${shadow};padding:12px 14px;flex:none;">` +
       `<div style="width:26px;flex:none;font-family:var(--font-display);font-size:20px;color:${rankFg};text-align:center;">${rank}</div>` +
       `<div style="width:44px;height:44px;flex:none;border-radius:50%;background:${p.token};border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:19px;">${initials(p.name)}</div>` +
       `<div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;"><div style="font-weight:700;font-size:17px;">${p.you ? p.name + ' (you)' : p.name}</div><div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;color:${subFg};">${sub}</div></div>` +
@@ -232,6 +235,9 @@ export function renderOver({ game, canManage, onRunItBack, onHome } = {}) {
   const win = html('<div style="flex:none;padding:22px 20px 18px;display:flex;flex-direction:column;align-items:center;gap:12px;"></div>');
   win.appendChild(html(`<div style="width:96px;height:96px;border-radius:50%;background:var(--sky);border:4px solid var(--bone);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:38px;color:var(--ink);animation:tb-bob 3.6s ease-in-out infinite;">${initials(winner.name)}</div>`));
   win.appendChild(html(`<div style="font-family:var(--font-display);font-size:34px;color:var(--bone);letter-spacing:0.02em;">${winner.name.toUpperCase()} TAKES IT</div>`));
+  // Rare + high emotion: this is where the delight budget belongs. Once per
+  // game, keyed on the winner so a re-render doesn't replay it.
+  enterIfNew(win, 'over', winner.id, { from: 'scale(0.96)', duration: 'var(--dur-reveal)' });
   win.appendChild(html(`<div style="font-size:15px;line-height:1.5;color:var(--secondary-on-dark);text-align:center;">Lowest total wins — ${winner.final} points of leftovers all night.</div>`));
   root.appendChild(win);
 

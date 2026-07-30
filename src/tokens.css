@@ -125,6 +125,18 @@
   --r-pill: 999px;
   --r-frame: 40px;
 
+  /* --- motion ---
+     Durations stay inside the UI budget (under 300ms) apart from --dur-reveal,
+     which is only for the once-a-session Game Over screen. Press feedback keeps
+     its own 40ms in style.css: it is the highest-frequency motion in the app and
+     anything slower reads as lag. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-bridge: 140ms;   /* screen changes the player did not ask for */
+  --dur-enter: 220ms;    /* something arriving: a seat taken, a row moving */
+  --dur-reveal: 320ms;   /* the winner, once a game */
+  --stagger: 40ms;
+
   /* --- outline weights --- */
   --ol-hair: 2px;
   --ol-base: 3px;
