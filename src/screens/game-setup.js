@@ -107,7 +107,7 @@ export function renderRules({ onBack } = {}) {
     if (idx < 3) walkRow.appendChild(html(`<div style="font-family:var(--font-display);font-size:22px;color:var(--disabled-text);">${idx < 2 ? '›' : '…'}</div>`));
   });
   walkCard.appendChild(walkRow);
-  walkCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Round one opens on double twelve. After that the <strong>manager picks each round\'s double</strong> — usually the next one down, but you open on whichever double a player is still holding.</div>'));
+  walkCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Round one opens on double twelve. After that you open on the <strong>highest double</strong> someone is still holding \u2014 the manager taps it into the app so every phone follows.</div>'));
   body.appendChild(walkCard);
 
   const dblCard = html('<div style="background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:16px;box-shadow:var(--shadow-raised);padding:18px;display:flex;flex-direction:column;gap:11px;"><div style="font-family:var(--font-display);font-size:21px;">PLAYING A DOUBLE</div></div>');
