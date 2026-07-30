@@ -104,8 +104,17 @@ improved before pushing.
 Do not incur paid cloud/compute/API charges (training runs, hosted inference, any
 paid API, **any Cloudflare step that requires a paid plan or enabling billing**)
 without the user's explicit per-task approval. Validate accuracy on the real held-out
-eval set — locally and free where possible. Deploys to the user's Cloudflare account
-are user-gated: ask first.
+eval set — locally and free where possible.
+
+**Deploying to tallybone.com is pre-authorized as part of "push to main"** (standing
+instruction, 2026-07-30): a push and a deploy are one action to the user, so run
+`pnpm build && npx wrangler deploy` after pushing, without asking. It is free-tier
+and free-tier only — the paid-plan gate above is untouched. Before deploying,
+confirm `public/models/` holds `tile.onnx` and `pip.onnx`: they are gitignored, and
+deploying from a machine without them ships an app whose scanner cannot load.
+**Then verify the live site actually serves the new build** — Cloudflare's edge can
+keep serving a cached `index.html` pointing at the previous build's hashed assets,
+so check the hash in the live HTML rather than trusting a clean `wrangler deploy`.
 
 ### DRY — don't repeat yourself
 Before writing any function/constant/logic, search for it first; reuse or extend it
@@ -183,7 +192,7 @@ pnpm test     # vitest (vitest.config.js, see below)
 pnpm build    # production build (Vite + Worker bundle)
 pnpm smoke    # two-client WebSocket smoke against a running `pnpm dev`
 
-pnpm build && npx wrangler deploy    # deploy to tallybone.com — USER-GATED, ask first
+pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs as part of "push to main"
 ```
 
 **Dev gotchas (measured here, not guessed):**

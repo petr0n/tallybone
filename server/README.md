@@ -46,8 +46,20 @@ npx wrangler deploy --dry-run          # validate config/bindings, change nothin
 
 `vite build` emits `dist/client` (assets) plus `dist/tallybone/wrangler.json`, and
 `wrangler deploy` picks up that generated config — the output notes it is "Using
-redirected Wrangler configuration". Deploying is **user-gated**: it targets the
-owner's Cloudflare account, so ask before running it.
+redirected Wrangler configuration". Deploying is **pre-authorized as part of
+"push to main"** — see the deploy rule in `CLAUDE.md`. It stays free-tier; a step
+needing a paid plan still requires asking.
+
+The edge caches `index.html`. After deploying, confirm the live HTML references
+the hashed assets the build just emitted:
+
+```
+grep -o 'assets/index-[A-Za-z0-9]*\.js' dist/client/index.html
+curl -s "https://tallybone.com/?cb=$RANDOM" | grep -o 'assets/index-[A-Za-z0-9]*\.js'
+```
+
+They can disagree for a minute or two after a deploy; if they still disagree
+after that, the deploy did not land.
 
 ### How the origin is wired
 
