@@ -9,6 +9,7 @@ import './style.css';
 import './screens.css';
 import { ENABLE_UPLOAD_FALLBACK, ENABLE_CORPUS_CAPTURE } from './config.js';
 import { requestCamera, stopCamera, captureFullFrame } from './camera.js';
+import { DIAG_ON, attachCameraDiag } from './camera-diag.js';
 import { fileToImageData } from './upload.js';
 import { initScanner, scanWithProgress } from './scan.js';
 import { renderCapture } from './screens/capture.js';
@@ -280,8 +281,13 @@ function showCapture() {
   mount(cap.el);
   currentVideo = cap.video;
   requestCamera(cap.video).then((res) => {
-    if (res.stream) stream = res.stream;
-    else if (photoFallback) navSwap(showCameraBlocked); // iOS: live camera blocked -> take a photo
+    if (res.stream) {
+      stream = res.stream;
+      // ?diag=1 only: overlay what the camera actually negotiated vs what the
+      // preview shows. Used to settle framing questions with real device
+      // numbers instead of inference. No effect on the normal path.
+      if (DIAG_ON()) cap.el.appendChild(attachCameraDiag(cap.video, res.stream));
+    } else if (photoFallback) navSwap(showCameraBlocked); // iOS: live camera blocked -> take a photo
     else if (res.error === 'denied') navSwap(showDenied);
     else navSwap(showUnavailable);
   });
