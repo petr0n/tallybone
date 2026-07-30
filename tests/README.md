@@ -8,12 +8,13 @@ locally from the Mac. See the design spec + plan in
 
 | Command | Tier | What it proves | ~time |
 |---|---|---|---|
-| `pnpm test` | **Reducer** (vitest) | Pure game rules — 13 cases (join/rounds/turn-in/manager auth) | seconds |
+| `pnpm test` | **Reducer + components** (vitest) | Pure game rules (13 cases: join/rounds/turn-in/manager auth) + the domino pip layout — 21 cases | seconds |
+| `pnpm test:node` | **Plain-node units** | The 9 `node file.js` suites vitest deliberately skips: `scanner/test/*` (decode, geometry, nms, preprocess), `src/{camera,render,scan,game-state}`, `src/components/qr` — 28 assertions. Fails fast, non-zero on first bad file | seconds |
 | `pnpm test:e2e` | **Gameplay e2e** (Playwright) | Real browsers + real Durable Object: 6-player flagship, reconnect, gating, collision, deep-link, real in-browser scan | ~1–2 min |
 | `pnpm test:accuracy` | **Scanner accuracy** (Playwright) | Labeled corpus hands through the REAL in-browser scanner; per-half accuracy vs a baseline (drift guard) | ~1–2 min |
 | `pnpm test:stress` | **Backend stress** (Node+ws bots) | ~25 concurrent games, reconnect storm, idempotency, soak; reports latency p50/p95 | ~15 s |
 | `pnpm smoke` | Backend smoke | One 2-client round + reconnect | seconds |
-| `pnpm test:all` | Units + e2e + accuracy | Everything that self-hosts its server | ~3–4 min |
+| `pnpm test:all` | Units + node units + e2e + accuracy | Everything that self-hosts its server | ~3–4 min |
 
 `test:stress` and `smoke` need a dev server up first:
 
@@ -52,7 +53,7 @@ port **5199** automatically (reused if already running).
 
 ## Pre-live-event checklist
 
-1. `pnpm test` — reducer + units green.
+1. `pnpm test && pnpm test:node` — reducer, components, and the plain-node units green.
 2. `pnpm test:all` — 6-player flagship, reconnect, gating, and scanner accuracy green.
 3. Start `pnpm dev`; `SMOKE_BASE=ws://localhost:5199 pnpm test:stress` — 0 errors, p95 latency sane.
 4. **Scan a batch of your OWN real tiles** through the app (`pnpm dev`, "Just count

@@ -9,10 +9,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "smoke": "node server/smoke.mjs",
+    "test:node": "for f in scanner/test/*.test.js src/*.test.js src/components/qr.test.js; do printf '\\n# %s\\n' \"$f\" && node \"$f\" || exit 1; done",
     "test:e2e": "playwright test --project=e2e",
     "test:accuracy": "playwright test --project=accuracy",
     "test:stress": "node tests/stress/robustness.mjs",
-    "test:all": "pnpm test && pnpm test:e2e && pnpm test:accuracy"
+    "test:all": "pnpm test && pnpm test:node && pnpm test:e2e && pnpm test:accuracy"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.47.0",
