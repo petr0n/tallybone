@@ -7,22 +7,30 @@
 // { stream } on success, or { error: 'denied' } when the user blocked the
 // camera (recoverable in Settings) vs { error: 'unavailable' } when it's
 // missing / busy / unsupported (the CAM-02 case). Resolution rationale below.
-export async function requestCamera(videoEl) {
+// Selectable capture modes, so field-testing the framing is a URL change rather
+// than a redeploy (?cam=43 / ?cam=native). Default is unchanged.
+//
+// Why this is worth testing: iOS rear cameras are natively 4:3 and produce 16:9
+// BY CROPPING, so the default '169' request throws away field of view before the
+// preview crops it again. '43' asks for the sensor's native shape; 'native'
+// drops resolution constraints entirely and takes whatever the device prefers.
+export const CAMERA_MODES = {
+  // Without explicit resolution constraints, mobile browsers commonly default to
+  // a low webcam-grade stream (observed: 480x640) rather than the camera's
+  // actual capability -- 'ideal' asks for as much as the device supports,
+  // falling back gracefully rather than hard-failing if it isn't available.
+  '169': { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } },
+  '43': { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1920 } },
+  native: { facingMode: 'environment' },
+};
+
+export async function requestCamera(videoEl, mode = '169') {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     return { error: 'unavailable' };
   }
   try {
-    // Without explicit resolution constraints, mobile browsers commonly
-    // default to a low webcam-grade stream (observed: 480x640) rather than
-    // the camera's actual capability -- 'ideal' asks for as much as the
-    // device supports, falling back gracefully rather than hard-failing if
-    // this exact resolution isn't available.
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: 'environment',
-        width: { ideal: 3840 },
-        height: { ideal: 2160 },
-      },
+      video: CAMERA_MODES[mode] || CAMERA_MODES['169'],
       audio: false,
     });
     videoEl.srcObject = stream;

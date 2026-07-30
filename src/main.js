@@ -9,7 +9,7 @@ import './style.css';
 import './screens.css';
 import { ENABLE_UPLOAD_FALLBACK, ENABLE_CORPUS_CAPTURE } from './config.js';
 import { requestCamera, stopCamera, captureFullFrame } from './camera.js';
-import { DIAG_ON, attachCameraDiag } from './camera-diag.js';
+import { DIAG_ON, attachCameraDiag, CAMERA_MODE, OBJECT_FIT } from './camera-diag.js';
 import { fileToImageData } from './upload.js';
 import { initScanner, scanWithProgress } from './scan.js';
 import { renderCapture } from './screens/capture.js';
@@ -282,7 +282,8 @@ function showCapture() {
   });
   mount(cap.el);
   currentVideo = cap.video;
-  requestCamera(cap.video).then((res) => {
+  cap.video.style.objectFit = OBJECT_FIT();   // ?fit=contain shows the whole frame
+  requestCamera(cap.video, CAMERA_MODE()).then((res) => {
     if (res.stream) {
       stream = res.stream;
       // ?diag=1 only: overlay what the camera actually negotiated vs what the

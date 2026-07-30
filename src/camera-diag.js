@@ -11,10 +11,17 @@
 //   3. how much of that frame the preview is hiding, since `object-fit: cover`
 //      shows only a slice of what captureFullFrame() actually scans.
 // Read the same page on two devices and the difference is the answer.
+import { CAMERA_MODES } from './camera.js';
 
-export const DIAG_ON = () => {
-  try { return new URLSearchParams(location.search).get('diag') === '1'; } catch { return false; }
-};
+const qp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch { return null; } };
+
+export const DIAG_ON = () => qp('diag') === '1';
+// Field-test toggles, default off:
+//   ?cam=43      request the sensor's native 4:3 instead of cropped 16:9
+//   ?cam=native  no resolution constraints at all
+//   ?fit=contain show the WHOLE frame (letterboxed) instead of cover-cropping it
+export const CAMERA_MODE = () => qp('cam') || '169';
+export const OBJECT_FIT = () => (qp('fit') === 'contain' ? 'contain' : 'cover');
 
 // Fraction of the source frame left visible by object-fit: cover in `box`.
 export function visibleFraction(videoW, videoH, boxW, boxH) {
@@ -45,7 +52,8 @@ export function attachCameraDiag(videoEl, stream) {
 
     panel.innerHTML =
       `<div style="font-weight:700;margin-bottom:6px;">camera diag — screenshot this</div>` +
-      row('asked', '3840×2160 (16:9)') +
+      row('mode', `?cam=${CAMERA_MODE()}  ?fit=${OBJECT_FIT()}`) +
+      row('asked', JSON.stringify(CAMERA_MODES[CAMERA_MODE()] || CAMERA_MODES['169'])) +
       row('got', `${s.width || vw}×${s.height || vh} (${ratio(s.width || vw, s.height || vh)})`) +
       row('aspectRatio', s.aspectRatio != null ? Number(s.aspectRatio).toFixed(3) : '—') +
       row('camera', (track && track.label) || '—') +
