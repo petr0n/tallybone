@@ -16,12 +16,16 @@ import { CAMERA_MODES } from './camera.js';
 const qp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch { return null; } };
 
 export const DIAG_ON = () => qp('diag') === '1';
-// Field-test toggles, default off:
-//   ?cam=43      request the sensor's native 4:3 instead of cropped 16:9
-//   ?cam=native  no resolution constraints at all
-//   ?fit=contain show the WHOLE frame (letterboxed) instead of cover-cropping it
+// ?cam=43 / ?cam=native are still field-test toggles (default '169').
 export const CAMERA_MODE = () => qp('cam') || '169';
-export const OBJECT_FIT = () => (qp('fit') === 'contain' ? 'contain' : 'cover');
+
+// The viewfinder now shows the WHOLE captured frame. It used to be `cover`,
+// which cropped ~74% of the frame away on a phone and ~61% on an iPad while
+// captureFullFrame() scanned all of it — so the preview hid tiles that were
+// being captured anyway, and people backed away from the table to fit them in.
+// Confirmed on an iPad: with `contain` the framing "looked right" at normal
+// height. `?fit=cover` restores the old full-bleed crop.
+export const OBJECT_FIT = () => (qp('fit') === 'cover' ? 'cover' : 'contain');
 
 // Fraction of the source frame left visible by object-fit: cover in `box`.
 export function visibleFraction(videoW, videoH, boxW, boxH) {
