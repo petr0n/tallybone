@@ -3,6 +3,7 @@
 // Phase 2 Game design; derived data from game-state.js.
 import { domino } from '../components/domino.js';
 import { html, el } from '../dom.js';
+import { handTotal } from '../scoring.js';
 import { tallyMark } from '../brand.js';
 import { initials, seated, scoredPlayers, ranked, finalRanked, SEAT_TOKENS } from '../game-state.js';
 
@@ -80,7 +81,7 @@ export function renderRound({ game, onBack, onScan, onWin, onScores } = {}) {
 const SEED_TILES = [{ a: 9, b: 4 }, { a: 6, b: 11 }, { a: 12, b: 0 }, { a: 5, b: 8 }, { a: 2, b: 2 }, { a: 3, b: 1 }];
 export function renderSubmit({ game, tiles, onBack, onTurnIn, onChangeRead } = {}) {
   const list = (tiles && tiles.length ? tiles : SEED_TILES);
-  const total = list.reduce((n, t) => n + t.a + t.b, 0);
+  const total = handTotal(list);   // never a bare pip sum: the 0/0 scores 40
   const root = html('<div class="screen screen--light"></div>');
   root.appendChild(darkHeader(`ROUND ${game.roundNum} · LAST LOOK`, 'TURN IN YOUR SCORE', onBack));
 

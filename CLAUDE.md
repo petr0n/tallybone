@@ -160,6 +160,16 @@ intent either way. Round 1 opens on the double-12; each later round opens on the
 double the manager picks. Standings rank **ascending** by running total; players who
 haven't turned in this round sort last.
 
+- **The double blank scores 40, not 0.** House rule: get caught holding the 0/0 at
+  the end of a round and it costs 40. It is the one tile whose pip count lies, so
+  never total a hand with a bare `a + b` sum — use `handTotal()` from
+  [`src/scoring.js`](src/scoring.js), which is the single home for this.
+- A 0/0 only scores once it is a real claim — the scanner read a blank (`scanned`)
+  or the player moved its steppers (`touched`). Every tile added by hand starts at
+  0/0, so counting any blank would charge 40 for a tile nobody has filled in yet.
+- The server is not involved: the reducer records whatever `total` a player turns
+  in, and what a hand is *worth* is decided client-side next to the scan.
+
 ---
 
 ## Current repo state

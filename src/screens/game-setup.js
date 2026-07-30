@@ -73,7 +73,8 @@ export function renderRules({ onBack } = {}) {
   body.appendChild(html(
     '<div style="background:var(--ink);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;">' +
     '<div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.2em;color:var(--sky);">THE POINT OF IT</div>' +
-    "<div style=\"font-size:15.5px;line-height:1.55;color:var(--bone);\">Get rid of your bones. Whatever's still in your hand when someone goes out gets counted against you. <strong>Lowest total after the last round wins.</strong></div></div>"));
+    "<div style=\"font-size:15.5px;line-height:1.55;color:var(--bone);\">Get rid of your bones. Whatever's still in your hand when someone goes out gets counted against you. <strong>Lowest total after the last round wins.</strong></div>" +
+    "<div style=\"font-size:15.5px;line-height:1.55;color:var(--bone);border-top:1px solid rgba(242,235,213,0.25);padding-top:9px;\">One exception: the <strong>double blank</strong> is worth <strong>40</strong>, not nothing. Don't get caught holding it.</div></div>"));
 
   const steps = ['The round opens on a starting double. Play it down and run your train.',
     'First player out of bones ends the round and taps <strong>I won this round</strong> — that\'s 0 points.',

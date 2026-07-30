@@ -4,6 +4,7 @@
 // design/design_handoff_tallybone/Tallybone Phase 1 Scanner.dc.html.
 import { domino } from '../components/domino.js';
 import { banner } from '../components/ui.js';
+import { handTotal, tilePoints, countsAsDoubleBlank } from '../scoring.js';
 import { tallyMark } from '../brand.js';
 import { html, el } from '../dom.js';
 import { computeRectifyTransform, warpPerspective, RECT_W, RECT_H } from '../../scanner/geometry.js';
@@ -39,6 +40,7 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
   const items = (tiles || []).map((t, i) => ({
     id: i, a: clamp(t.a | 0), b: clamp(t.b | 0), conf: t.conf === 'check' ? 'check' : 'ok',
     dismissed: false, bbox: t.bbox || null, cropUrl: tileCropUrl(sourceImageData, t.corners),
+    scanned: Boolean(t.bbox || t.corners), touched: false,
   }));
   let nextId = items.length;
 
@@ -113,13 +115,14 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
     const isDup = (t) => !t.dismissed && counts[key(t)] > 1;
     const dupTiles = live.filter(isDup);
     const checkTiles = live.filter((t) => t.conf === 'check' && !isDup(t));
-    const total = live.reduce((n, t) => n + t.a + t.b, 0);
-    return { live, isDup, dupTiles, checkTiles, total, blocked: dupTiles.length > 0 };
+    const total = handTotal(live);
+    const blanks = live.filter(countsAsDoubleBlank);
+    return { live, isDup, dupTiles, checkTiles, total, blanks, blocked: dupTiles.length > 0 };
   }
 
   function bump(item, half, delta) {
     const nv = clamp(item[half] + delta);
-    if (nv !== item[half]) { item[half] = nv; item.conf = 'ok'; rerender(); }
+    if (nv !== item[half]) { item[half] = nv; item.conf = 'ok'; item.touched = true; rerender(); }
   }
 
   function stepper(item, half) {
@@ -163,7 +166,11 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
     foot.appendChild(chip(chipVariant, chipLabel));
     const right = el('div');
     right.style.cssText = 'display:flex;align-items:center;gap:10px;flex:none;';
-    right.appendChild(el('div', 'rev__pts', `${item.a + item.b} pts`));
+    if (countsAsDoubleBlank(item)) {
+      const badge = el('div', 'rev__blank', 'DOUBLE BLANK');
+      card.insertBefore(badge, card.firstChild);
+    }
+    right.appendChild(el('div', 'rev__pts', `${tilePoints(item)} pts`));
     const nt = el('div', 'rev__nottile tb-press', 'Not a tile');
     nt.addEventListener('click', () => { item.dismissed = true; rerender(); });
     right.appendChild(nt);
@@ -233,7 +240,8 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
     footer.replaceChildren();
     const row = el('div', 'rev__totalrow');
     row.appendChild(el('div', `rev__totallabel${d.blocked ? ' rev__totallabel--blocked' : ''}`,
-      d.blocked ? `${d.dupTiles.length} TWINS TO FIX` : 'YOUR ROUND TOTAL'));
+      d.blocked ? `${d.dupTiles.length} TWINS TO FIX`
+        : (d.blanks.length ? `TOTAL · ${d.blanks.length * 40} FOR THE DOUBLE BLANK` : 'YOUR ROUND TOTAL')));
     row.appendChild(el('div', `rev__total${d.blocked ? ' rev__total--blocked' : ''}`, String(d.total)));
     footer.appendChild(row);
 
@@ -243,7 +251,11 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
         `<span class="tb-btn__icon">!</span>Fix ${d.dupTiles.length} twins first</button>`));
     } else {
       const submit = html(`<button type="button" class="tb-btn tb-btn--primary tb-press">Submit ${d.total} points</button>`);
-      submit.addEventListener('click', () => onSubmit && onSubmit(d.total, d.live.map((t) => ({ a: t.a, b: t.b }))));
+      submit.addEventListener('click', () => onSubmit && onSubmit(d.total, d.live.map(
+        // scanned/touched travel with the tile: they are what makes a 0/0 a
+        // claimed double blank rather than an unfilled placeholder, and the
+        // Submit screen has to reach the same total this screen just showed.
+        (t) => ({ a: t.a, b: t.b, scanned: t.scanned, touched: t.touched }))));
       footer.appendChild(submit);
     }
   }
