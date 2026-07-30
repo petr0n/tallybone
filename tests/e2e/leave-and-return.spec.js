@@ -30,15 +30,24 @@ test('backing out mid-round and returning keeps the seat', async ({ browser }) =
   }
   await expect(dee.page.getByRole('button', { name: 'Start a game' })).toBeVisible();
 
-  // The reconnect pointer must survive backing out — this is the actual bug.
+  // The seat must survive backing out — this was the original bug.
   const activeAfterBack = await dee.page.evaluate(() => localStorage.getItem('tb.active'));
   expect(activeAfterBack, 'tb.active must still point at the game after backing out').toBe(code);
 
-  // Coming back to the app returns her to the game, not to Home. She lands on
-  // the ROUND screen, not Standings: Standings is a client-side view, so the
-  // server's phase is still 'round' and phase-driven routing is what restores
-  // her — which is exactly the behaviour we want to pin.
+  // But backing out is a DELIBERATE step away, so the next load must not hijack
+  // her back into the game. (Earlier this test asserted the opposite; landing
+  // straight back in the round made the app impossible to leave — you could not
+  // even reach Home to scan tiles without being dragged back.)
   await dee.page.reload();
+  await expect(dee.page.getByRole('button', { name: 'Start a game' })).toBeVisible({ timeout: 25000 });
+  expect(await dee.page.evaluate(() => localStorage.getItem('tb.active')),
+    'the seat is still remembered, just not forced on her').toBe(code);
+
+  // And getting back in is cheap: the code and name are both prefilled.
+  await dee.page.getByRole('button', { name: 'Join a game' }).click();
+  await expect(dee.page.locator('input[maxlength="5"]')).toHaveValue(code);
+  await expect(dee.page.getByPlaceholder('Dee')).toHaveValue('Dee');
+  await dee.page.getByRole('button', { name: 'Join as Dee' }).click();
   await expect(dee.page.getByText('DOUBLE TWELVE')).toBeVisible({ timeout: 25000 });
 
   // Same seat, not a second one: Rosa's view still shows exactly one Dee.

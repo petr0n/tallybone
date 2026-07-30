@@ -126,8 +126,9 @@ window.addEventListener('popstate', () => {
 // tapping a header chevron is navigation, not resignation.
 function goHomeKeepingSeat() {
   net.disconnect();                 // stop following; others see us as away
+  safeSet('tb.away', '1');          // deliberate: don't hijack the next load
   snapshot = null; shownPhase = null; routeNextSnapshot = false;
-  navReset(showHome);               // tb.active kept: returning reconnects us
+  navReset(showHome);               // tb.active kept: the seat is still ours
 }
 
 // The genuine "I'm done with this game" exit, offered once the game is over.
@@ -138,6 +139,7 @@ function leaveGame() {
 // Join a game: open the socket + take a seat. Routing to the lobby happens once
 // the server confirms our seat (routeNextSnapshot in the onState handler).
 function enterGame(code, name) {
+  safeDel('tb.away');
   net.connect(code);
   net.join(name);
   routeNextSnapshot = true;
@@ -179,7 +181,7 @@ function showCreate() {
 }
 function showJoin() {
   mount(renderJoin({
-    prefillCode: joinPrefill,
+    prefillCode: joinPrefill || (safeGet('tb.away') === '1' ? (safeGet('tb.active') || '') : ''),
     prefillName: joinName || net.rememberedName() || '',
     error: joinError,
     onBack: navBack,
@@ -374,16 +376,22 @@ startScannerInit().catch(() => {}); // warm the models in the background
 // or a back-out of the game would keep dragging the player to Join, and the
 // code would linger in the address bar after they've moved on.
 const linkCode = joinCodeFromUrl(location.search);
-if (linkCode) history.replaceState(null, '', location.pathname + location.hash);
+// Following a join link is an explicit intent to be in that game, so it cancels
+// any earlier "stepped away".
+if (linkCode) { history.replaceState(null, '', location.pathname + location.hash); safeDel('tb.away'); }
 
 const activeCode = safeGet('tb.active');
+const steppedAway = safeGet('tb.away') === '1';
 if (linkCode && linkCode !== activeCode) {
   // A table we're not already sitting at: Join, code filled in, name to enter.
   joinPrefill = linkCode;
   navReset(showJoin);
 } else {
-  // No link, or a link back to the game we're already in — reclaim that seat
-  // rather than asking for a name again. Routing happens on the first snapshot.
-  if (activeCode) { routeNextSnapshot = true; net.connect(activeCode); }
+  // No link, or a link back to the game we're already in. Reclaim the seat and
+  // route to it on the first snapshot — UNLESS the player deliberately backed
+  // out to Home last time, in which case the seat is kept but they land on Home
+  // rather than being dragged back into a game they chose to leave. A real drop
+  // (crash, phone lock, closed tab) never sets that flag, so it still recovers.
+  if (activeCode && !steppedAway) { routeNextSnapshot = true; net.connect(activeCode); }
   navReset(showHome);
 }

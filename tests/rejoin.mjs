@@ -66,6 +66,30 @@ if (reply.ok) {
   check(g.phase === 'round', 'rejoined straight back into the live round');
 }
 
+// --- a socket that already holds the seat may re-join under the same name ---
+// This is what the app does when a player steps away and taps "Join as <name>":
+// `hello` reclaims the seat by token (marking it connected), then `join` follows.
+// The seat must not count as occupied by its own owner.
+const dee3 = makeClient(BASE, CODE);
+await dee3.open();
+// The token must be real: `hello` only claims a seat by token, and claiming it
+// is precisely what creates the self-collision this guards against.
+dee3.send({ t: 'hello', playerId: deeYou.playerId, token: deeYou.token });
+const claimed = await dee3.waitFor((m) => m.t === 'you', 'dee3 hello');
+check(claimed.playerId === deeYou.playerId, 'hello reclaimed the seat by token before re-joining');
+dee3.send({ t: 'join', name: 'Dee' });
+// NB: waitFor() scans the whole inbox, so racing it against `isYou` would match
+// the `you` already received from `hello` above and pass no matter what. Wait
+// for an ERROR specifically — nothing else has errored on this socket — and
+// treat silence as acceptance.
+const selfErr = await dee3.waitFor((m) => m.t === 'error', 'dee3 error', 2500).catch(() => null);
+check(!selfErr, `a socket re-joining its own seat is not refused${selfErr ? ` (got "${selfErr.code}")` : ''}`);
+const after = await dee3.waitFor(stateWhere((g) => g.players.filter((p) => p.name === 'Dee' && !p.removed).length >= 1), 'state after self-rejoin');
+check(after.game.players.filter((p) => p.name === 'Dee' && !p.removed).length === 1,
+  're-joining your own seat does not create a second row');
+dee3.close();
+await new Promise((r) => setTimeout(r, 300));
+
 // --- a genuinely different person must still be blocked from an ACTIVE seat ---
 const imposter = makeClient(BASE, CODE);
 await imposter.open();

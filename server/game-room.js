@@ -65,6 +65,14 @@ export class GameRoom extends DurableObject {
       // casual/friends trust tier locked in the Phase-2 spec.
       const wanted = (msg.name || '').trim().toLowerCase();
       const live = this.connectedIds();
+      // A socket never blocks itself. This socket may already hold the seat — a
+      // client that reconnects sends `hello` (reclaiming by token, which marks
+      // the seat connected) and can then send `join` for the same name, e.g.
+      // after stepping away and tapping "Join as <name>". Without this the seat
+      // would count as occupied by its own owner and the name check below would
+      // reject the player from their own seat.
+      const mySeat = (ws.deserializeAttachment() || {}).playerId;
+      if (mySeat) live.delete(mySeat);
       const reclaim = wanted && this.game && this.game.players.find(
         (p) => !p.removed && p.name.trim().toLowerCase() === wanted && !live.has(p.id));
 
