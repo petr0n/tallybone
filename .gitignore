@@ -31,6 +31,9 @@ public/pip-label.html
 # wrangler / cloudflare dev cache
 .wrangler/
 
+# brainstorming visual companion (mockups + copied assets)
+.superpowers/
+
 # playwright + test fixtures
 /test-results/
 /playwright-report/
