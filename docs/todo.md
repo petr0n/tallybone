@@ -123,3 +123,36 @@ reopened, and a completely different device with empty storage.
 If a mid-game **Leave the table** affordance is ever added (see the loose end
 above), *that* is where a confirm belongs — our own in-app dialog, which works on
 iOS too, rather than the browser's.
+
+---
+
+## Stale `index.html` at the edge after a deploy
+
+**Found 2026-07-30.** Not urgent, but it bites every deploy and it wasted time
+during the iPad camera investigation.
+
+After `wrangler deploy`, `https://tallybone.com/` serves the PREVIOUS
+`index.html` from some Cloudflare edge nodes for a while — inconsistently, so
+repeated requests flip between the old and new bundle hash. Observed
+`cf-cache-status: HIT` even though the response carries
+`cache-control: public, max-age=0, must-revalidate`, i.e. the edge is serving it
+without revalidating.
+
+Consequences:
+
+- A phone that loads during that window runs the OLD app. It does not break —
+  Workers Assets keeps prior asset paths addressable, so the stale HTML's
+  `/assets/index-<old>.js` still returns 200 — it just silently runs old code.
+- Anything gated behind a new flag (e.g. `?diag=1`) appears to "not work".
+- Server-side fixes are unaffected: the Worker and DO update immediately for
+  everyone regardless of which bundle a phone holds.
+
+Likely fix: ship a `_headers` file (or set headers in the Worker for the SPA
+document) so the HTML is `Cache-Control: no-store` — or at minimum ensure the
+edge revalidates it — while the hashed `/assets/*` keep their long cache. Verify
+with repeated plain `curl https://tallybone.com/` immediately after a deploy;
+the bundle hash should be stable on the first try.
+
+Gotcha for whoever checks this: `curl` on `/assets/*.js` returns **gzip**, so
+grepping the body without `--compressed` finds nothing and looks like a failed
+deploy. It is not.
