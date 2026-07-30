@@ -49,6 +49,7 @@ let liveRepaint = null;     // re-render fn for the current live screen (else nu
 let createDraft = null;     // { code, managerName, copied } for the Create screen
 let joinError = '';         // last server join error to surface on the Join screen
 let joinPrefill = '';       // code to prefill on the Join screen
+let joinName = '';          // name to prefill on the Join screen (last attempt)
 const view = () => viewGame(snapshot, net.whoami().playerId);
 
 const PHASE_SCREEN = { lobby: showLobby, round: showRound, standings: showStandings, over: showOver };
@@ -75,7 +76,14 @@ net.onState((g) => {
 
 net.onError((code) => {
   if (code === 'name_taken' || code === 'name_required') { joinError = code; navSwap(showJoin); }
-  else console.warn('game error:', code);
+  else if (code === 'seat_lost') {
+    // Reconnect found no seat and we have no remembered name to reclaim with.
+    // Send the player to Join with the code filled in rather than leaving them
+    // stranded on Home waiting for a confirmation that will never arrive.
+    const lost = net.whoami().code;
+    routeNextSnapshot = false;
+    if (lost) { joinPrefill = lost; joinError = ''; navReset(showJoin); }
+  } else console.warn('game error:', code);
 });
 
 let scannerReady = false;
@@ -148,7 +156,7 @@ function errorBoot() {
 // ---------- Phase-2 game screens ----------
 function showHome() {
   mount(renderHome({
-    onStartGame: () => { createDraft = { code: mintCode(), managerName: '', copied: false }; navGo(showCreate); },
+    onStartGame: () => { createDraft = { code: mintCode(), managerName: net.rememberedName() || '', copied: false }; navGo(showCreate); },
     onJoin: () => { joinError = ''; joinPrefill = ''; navGo(showJoin); },
     onSolo: () => { scanContext = 'solo'; ensureScannerThen(() => navGo(showCapture)); },
     onRules: () => navGo(showRules),
@@ -171,9 +179,10 @@ function showCreate() {
 function showJoin() {
   mount(renderJoin({
     prefillCode: joinPrefill,
+    prefillName: joinName || net.rememberedName() || '',
     error: joinError,
     onBack: navBack,
-    onJoin: (code, name) => { joinError = ''; joinPrefill = code; enterGame(code, name); },
+    onJoin: (code, name) => { joinError = ''; joinPrefill = code; joinName = name; enterGame(code, name); },
   }));
 }
 function showLobby() {
