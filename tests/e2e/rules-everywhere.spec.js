@@ -72,3 +72,31 @@ test('the rules are reachable from the scanner screens', async ({ browser }) => 
 
   await context.close();
 });
+
+test('the rules cover the table rules players actually ask about', async ({ browser }) => {
+  const { context, page } = await newPhone(browser);
+  await page.getByText('How to play').click();
+  await expect(page.getByText('HOW TO PLAY')).toBeVisible();
+
+  // Draw counts by table size
+  await expect(page.getByText('HOW MANY YOU DRAW')).toBeVisible();
+  await expect(page.getByText('15', { exact: true })).toBeVisible();
+  await expect(page.getByText(/2.4 PLAYERS/)).toBeVisible();
+  await expect(page.getByText('12', { exact: true })).toBeVisible();
+  await expect(page.getByText(/5.6 PLAYERS/)).toBeVisible();
+
+  // Turn order and the boneyard
+  await expect(page.getByText(/clockwise/i)).toBeVisible();
+  await expect(page.getByText(/boneyard/i).first()).toBeVisible();
+
+  // Doubles: extra turn, closing it, the penalty, and not going out on one
+  await expect(page.getByText('PLAYING A DOUBLE')).toBeVisible();
+  await expect(page.getByText(/close/i).first()).toBeVisible();
+  await expect(page.getByText(/skip your next turn/i)).toBeVisible();
+  await expect(page.getByText(/can.t go out on a double/i)).toBeVisible();
+
+  // And the scoring exception that started all this
+  await expect(page.getByText(/double blank/i).first()).toBeVisible();
+
+  await context.close();
+});

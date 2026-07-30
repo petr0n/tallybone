@@ -78,6 +78,16 @@ export function renderRules({ onBack } = {}) {
     "<div style=\"font-size:15.5px;line-height:1.55;color:var(--bone);\">Get rid of your bones. Whatever's still in your hand when someone goes out gets counted against you. <strong>Lowest total after the last round wins.</strong></div>" +
     "<div style=\"font-size:15.5px;line-height:1.55;color:var(--bone);border-top:1px solid rgba(242,235,213,0.25);padding-top:9px;\">One exception: the <strong>double blank</strong> is worth <strong>40</strong>, not nothing. Don't get caught holding it.</div></div>"));
 
+  const dealCard = html('<div style="background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:16px;box-shadow:var(--shadow-raised);padding:18px;display:flex;flex-direction:column;gap:11px;"><div style="font-family:var(--font-display);font-size:21px;">HOW MANY YOU DRAW</div></div>');
+  const dealRow = html('<div style="display:flex;gap:10px;"></div>');
+  [['15', '2\u20134 PLAYERS'], ['12', '5\u20136 PLAYERS']].forEach(([n, who]) => dealRow.appendChild(html(
+    '<div style="flex:1;background:var(--stepper-btn);border:2.5px solid var(--ink);border-radius:12px;padding:12px 8px;text-align:center;">' +
+    `<div style="font-family:var(--font-display);font-size:34px;line-height:1;">${n}</div>` +
+    `<div style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:0.12em;margin-top:5px;">${who}</div></div>`)));
+  dealCard.appendChild(dealRow);
+  dealCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Whatever is left over is the <strong>boneyard</strong>. Play moves <strong>clockwise</strong> around the table.</div>'));
+  body.appendChild(dealCard);
+
   const steps = ['The round opens on a starting double. Play it down and run your train.',
     'First player out of bones ends the round and taps <strong>I won this round</strong> — that\'s 0 points.',
     'Everyone else spreads their leftovers on the table and scans them. Tallybone counts the pips.',
@@ -99,6 +109,14 @@ export function renderRules({ onBack } = {}) {
   walkCard.appendChild(walkRow);
   walkCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Round one opens on double twelve. After that the <strong>manager picks each round\'s double</strong> — usually the next one down, but you open on whichever double a player is still holding.</div>'));
   body.appendChild(walkCard);
+
+  const dblCard = html('<div style="background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:16px;box-shadow:var(--shadow-raised);padding:18px;display:flex;flex-direction:column;gap:11px;"><div style="font-family:var(--font-display);font-size:21px;">PLAYING A DOUBLE</div></div>');
+  const dblRow = html('<div style="display:flex;align-items:center;gap:14px;"></div>');
+  dblRow.appendChild(domino({ a: 8, b: 8, size: 44, vertical: false }));
+  dblRow.appendChild(html('<div style="flex:1;font-size:14.5px;line-height:1.5;">Lay a double and you go again \u2014 but you have to <strong>close</strong> it by playing another bone on any open train.</div>'));
+  dblCard.appendChild(dblRow);
+  dblCard.appendChild(html('<div style="font-size:14.5px;line-height:1.6;">\u00b7 Can\'t close it? Draw one from the <strong>boneyard</strong> and <strong>skip your next turn</strong>.<br>\u00b7 You can\'t go out on a double \u2014 the last bone you play can never be one.</div>'));
+  body.appendChild(dblCard);
 
   const worthCard = html('<div style="background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:16px;box-shadow:var(--shadow-raised);padding:18px;display:flex;flex-direction:column;gap:11px;"><div style="font-family:var(--font-display);font-size:21px;">WHAT A BONE IS WORTH</div></div>');
   const worthRow = html('<div style="display:flex;align-items:center;gap:14px;"></div>');
