@@ -46,9 +46,9 @@ npx wrangler deploy --dry-run          # validate config/bindings, change nothin
 
 `vite build` emits `dist/client` (assets) plus `dist/tallybone/wrangler.json`, and
 `wrangler deploy` picks up that generated config — the output notes it is "Using
-redirected Wrangler configuration". Deploying is **pre-authorized as part of
-"push to main"** — see the deploy rule in `CLAUDE.md`. It stays free-tier; a step
-needing a paid plan still requires asking.
+redirected Wrangler configuration". Deploying is **pre-authorized: "push" means
+push to GitHub and deploy** — see the deploy rule in `CLAUDE.md`. It stays
+free-tier; a step needing a paid plan still requires asking.
 
 The edge caches `index.html`. After deploying, confirm the live HTML references
 the hashed assets the build just emitted:

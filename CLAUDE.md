@@ -106,10 +106,10 @@ paid API, **any Cloudflare step that requires a paid plan or enabling billing**)
 without the user's explicit per-task approval. Validate accuracy on the real held-out
 eval set — locally and free where possible.
 
-**Deploying to tallybone.com is pre-authorized as part of "push to main"** (standing
-instruction, 2026-07-30): a push and a deploy are one action to the user, so run
-`pnpm build && npx wrangler deploy` after pushing, without asking. It is free-tier
-and free-tier only — the paid-plan gate above is untouched. Before deploying,
+**"Push" means push to GitHub AND deploy to tallybone.com** (standing instruction,
+2026-07-30). Any phrasing of it — "push", "push to main", "push it" — is one
+action: `git push`, then `pnpm build && npx wrangler deploy`, without asking. It
+is free-tier and free-tier only — the paid-plan gate above is untouched. Before deploying,
 confirm `public/models/` holds `tile.onnx` and `pip.onnx`: they are gitignored, and
 deploying from a machine without them ships an app whose scanner cannot load.
 **Then verify the live site actually serves the new build** — Cloudflare's edge can
@@ -192,7 +192,7 @@ pnpm test     # vitest (vitest.config.js, see below)
 pnpm build    # production build (Vite + Worker bundle)
 pnpm smoke    # two-client WebSocket smoke against a running `pnpm dev`
 
-pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs as part of "push to main"
+pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever the user says "push"
 ```
 
 **Dev gotchas (measured here, not guessed):**
