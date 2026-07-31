@@ -8,11 +8,11 @@
 import './style.css';
 import './screens.css';
 import { ENABLE_UPLOAD_FALLBACK, ENABLE_CORPUS_CAPTURE } from './config.js';
-import { requestCamera, stopCamera, captureReticleFrame } from './camera.js';
+import { requestCamera, stopCamera, captureScanArea } from './camera.js';
 import { DIAG_ON, attachCameraDiag, CAMERA_MODE, OBJECT_FIT } from './camera-diag.js';
 import { fileToImageData } from './upload.js';
 import { initScanner, scanWithProgress } from './scan.js';
-import { renderCapture } from './screens/capture.js';
+import { renderCapture, layoutScanBox } from './screens/capture.js';
 import { renderScanning } from './screens/scanning.js';
 import { renderReview } from './screens/review.js';
 import { renderSubmitted } from './screens/submitted.js';
@@ -39,6 +39,7 @@ const copyText = (t) => { if (navigator.clipboard) navigator.clipboard.writeText
 
 let stream = null;
 let currentVideo = null;
+let captureRelayout = null;   // window resize handler owned by the capture screen
 let scanContext = 'solo';   // 'solo' | 'ingame'
 let lastScan = null;        // { tiles, sourceImageData, photoBitmap, photoW, photoH }
 let scanRunId = 0;          // bumped on nav/back to invalidate an in-flight scan
@@ -100,6 +101,9 @@ function canvasFactory(w, h) {
 function mount(node) {
   if (stream) { stopCamera(stream); stream = null; }
   currentVideo = null;
+  // The capture screen registers a window resize listener to keep the scan box
+  // on the frame; drop it with the screen rather than leaving one per visit.
+  if (captureRelayout) { removeEventListener('resize', captureRelayout); captureRelayout = null; }
   root.replaceChildren(node);
 }
 
@@ -316,6 +320,13 @@ function showCapture() {
   mount(cap.el);
   currentVideo = cap.video;
   cap.video.style.objectFit = OBJECT_FIT();   // ?fit=contain shows the whole frame
+  // The dashed box tracks the video's displayed rect, which is not known until
+  // the stream reports its dimensions and changes on rotate/resize.
+  const relayout = () => layoutScanBox(cap.video, cap.reticle, OBJECT_FIT());
+  cap.video.addEventListener('loadedmetadata', relayout);
+  cap.video.addEventListener('resize', relayout);
+  addEventListener('resize', relayout);
+  captureRelayout = relayout;
   requestCamera(cap.video, CAMERA_MODE()).then((res) => {
     if (res.stream) {
       stream = res.stream;
@@ -340,7 +351,7 @@ function doScan() {
   if (!currentVideo || !currentVideo.videoWidth) return;
   // Only what the brackets enclose: they are the promise the screen makes, and
   // Review shows this same image back, so the two cannot disagree.
-  navGo(makeShowScanning(captureReticleFrame(currentVideo, canvasFactory)));
+  navGo(makeShowScanning(captureScanArea(currentVideo, canvasFactory, OBJECT_FIT())));
 }
 function doUpload(file) {
   if (!file) return;

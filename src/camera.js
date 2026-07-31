@@ -59,42 +59,51 @@ export function captureFullFrame(videoEl, canvasFactory) {
   return ctx.getImageData(0, 0, w, h);
 }
 
-// The blue brackets as fractions of the VIEWPORT. capture.js positions
-// `.cap__reticle` from these instead of the CSS repeating them, so the square
-// on screen and the crop below cannot drift apart — a reticle that lies about
-// what gets scanned is worse than no reticle.
-export const RETICLE = { insetFrac: 0.08, topFrac: 0.23 };
+// The scan area is the VISIBLE frame inset by this much on every side. Same
+// value and same reason as GUIDE_INSET_FRAC above: the margin is what kept
+// background clutter at the frame's edges from producing false detections.
+export const SCAN_INSET_FRAC = 0.06;
 
 /**
- * The reticle rectangle in NATIVE video pixels.
+ * Where the video's pixels actually land on screen, in CSS px relative to the
+ * video element's own box.
  *
- * `.cap__video` is `object-fit: cover`, so whenever the frame's aspect differs
- * from the screen's, what the player sees is a centred crop of the native frame
- * — often a small slice of it. Map through that visible region first, then
- * apply the reticle's fractions inside it.
+ * The viewfinder runs `object-fit: contain` by default (camera-diag.js's
+ * OBJECT_FIT, applied in main.js) so the player sees the WHOLE frame, usually
+ * letterboxed — cover was hiding ~74% of the frame on a phone. The brackets are
+ * drawn onto this rect, not onto the screen, or they would sit partly on the
+ * black bars and promise a scan area that does not exist.
  */
-export function computeReticleCrop(videoW, videoH, viewW, viewH, r = RETICLE) {
-  if (!videoW || !videoH || !viewW || !viewH) {
-    return { x: 0, y: 0, width: videoW || 1, height: videoH || 1 };
-  }
-  const scale = Math.max(viewW / videoW, viewH / videoH);   // native px -> css px
-  const visW = viewW / scale, visH = viewH / scale;         // the region cover shows
-  const x = (videoW - visW) / 2 + (viewW * r.insetFrac) / scale;
-  const y = (videoH - visH) / 2 + (viewH * r.topFrac) / scale;
-  const side = (viewW * (1 - r.insetFrac * 2)) / scale;     // square, width drives it
-  const left = Math.max(0, x), top = Math.max(0, y);
-  return {
-    x: left, y: top,
-    width: Math.max(1, Math.min(side, videoW - left)),
-    height: Math.max(1, Math.min(side, videoH - top)),
-  };
+export function computeDisplayRect(videoW, videoH, viewW, viewH, fit = 'contain') {
+  if (!videoW || !videoH || !viewW || !viewH) return { x: 0, y: 0, width: viewW || 0, height: viewH || 0 };
+  const scale = fit === 'cover'
+    ? Math.max(viewW / videoW, viewH / videoH)
+    : Math.min(viewW / videoW, viewH / videoH);
+  const width = videoW * scale, height = videoH * scale;
+  return { x: (viewW - width) / 2, y: (viewH - height) / 2, width, height, scale };
 }
 
-// Capture exactly what the brackets enclose. This is what the scanner reads, so
-// a tile outside the square is genuinely out of play.
-export function captureReticleFrame(videoEl, canvasFactory) {
-  const { x, y, width, height } = computeReticleCrop(
-    videoEl.videoWidth, videoEl.videoHeight, videoEl.clientWidth, videoEl.clientHeight);
+/**
+ * The scan area in NATIVE video pixels: the visible region, inset.
+ *
+ * With `contain` the whole frame is visible, so this is simply the frame minus
+ * its margin. With `cover` only a centred slice is on screen, and scanning what
+ * the player cannot see is the bug this whole change exists to remove — so the
+ * slice is computed first and the inset applied inside it.
+ */
+export function computeScanCrop(videoW, videoH, viewW, viewH, fit = 'contain', insetFrac = SCAN_INSET_FRAC) {
+  if (!videoW || !videoH) return { x: 0, y: 0, width: videoW || 1, height: videoH || 1 };
+  if (fit === 'cover' && viewW && viewH) return computeGuideCrop(videoW, videoH, viewW / viewH, insetFrac);
+  const insetX = videoW * insetFrac, insetY = videoH * insetFrac;
+  return { x: insetX, y: insetY, width: videoW - insetX * 2, height: videoH - insetY * 2 };
+}
+
+// Capture exactly what the dashed box encloses. This is what the scanner reads,
+// so a tile outside the box is genuinely out of play — and Review shows this
+// same image back, which is why the two can never disagree.
+export function captureScanArea(videoEl, canvasFactory, fit = 'contain') {
+  const { x, y, width, height } = computeScanCrop(
+    videoEl.videoWidth, videoEl.videoHeight, videoEl.clientWidth, videoEl.clientHeight, fit);
   const w = Math.round(width), h = Math.round(height);
   const { ctx } = canvasFactory(w, h);
   ctx.drawImage(videoEl, x, y, width, height, 0, 0, w, h);

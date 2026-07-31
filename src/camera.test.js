@@ -1,6 +1,6 @@
 // app/src/camera.test.js
 import assert from 'node:assert';
-import { computeGuideCrop, computeReticleCrop, RETICLE } from './camera.js';
+import { computeGuideCrop, computeScanCrop, computeDisplayRect, SCAN_INSET_FRAC } from './camera.js';
 
 function approxEqual(a, b, tol = 0.01) {
   assert.ok(Math.abs(a - b) < tol, `expected ${a} ~= ${b}`);
@@ -40,48 +40,63 @@ function approxEqual(a, b, tol = 0.01) {
   console.log('computeGuideCrop (narrower than box): PASS');
 }
 
-// --- the reticle crop -------------------------------------------------------
-// The blue brackets now BOUND the scan, so this rectangle and the CSS that
-// draws them must describe the same square. If they drift, the box on screen
-// lies about what gets read.
 
-// Native aspect matches the viewport exactly: no cover cropping, so the
-// reticle's viewport fractions map straight onto the frame.
+// --- the scan area ----------------------------------------------------------
+// The dashed box now BOUNDS the scan, so the rect drawn on screen and the rect
+// handed to the scanner must describe the same pixels. The viewfinder runs
+// `contain` by default, which is where the first attempt went wrong: it assumed
+// `cover` and put the box partly on the letterbox bars.
+
+// contain: the whole frame is on screen, so the scan area is just the frame
+// minus its margin — no viewport arithmetic can creep in.
 {
-  const c = computeReticleCrop(390, 844, 390, 844);
-  approxEqual(c.x, 390 * RETICLE.insetFrac);
-  approxEqual(c.y, 844 * RETICLE.topFrac);
-  approxEqual(c.width, 390 * (1 - RETICLE.insetFrac * 2));
-  approxEqual(c.height, c.width, 0.02);   // the reticle is square
-  console.log('computeReticleCrop (matching aspect): PASS');
+  const c = computeScanCrop(3840, 2160, 390, 844, 'contain');
+  approxEqual(c.x, 3840 * SCAN_INSET_FRAC);
+  approxEqual(c.y, 2160 * SCAN_INSET_FRAC);
+  approxEqual(c.width, 3840 * (1 - SCAN_INSET_FRAC * 2));
+  approxEqual(c.height, 2160 * (1 - SCAN_INSET_FRAC * 2));
+  console.log('computeScanCrop (contain: the frame, inset): PASS');
 }
 
-// A landscape frame in a tall viewport — cover shows only a centre slice, and
-// the crop must come out of THAT slice, not the whole frame. This is the case
-// that made full-frame capture scan tiles the player could not see.
+// The viewport must not change the answer under contain — the whole frame is
+// visible whatever shape the screen is.
 {
-  const c = computeReticleCrop(2200, 1650, 390, 844);
-  const scale = Math.max(390 / 2200, 844 / 1650);  // 0.5115 — height drives it
-  const visW = 390 / scale;
-  approxEqual(c.x, (2200 - visW) / 2 + (390 * RETICLE.insetFrac) / scale);
-  approxEqual(c.y, (1650 - 844 / scale) / 2 + (844 * RETICLE.topFrac) / scale);
-  approxEqual(c.width, (390 * (1 - RETICLE.insetFrac * 2)) / scale);
-  console.log('computeReticleCrop (landscape frame, tall viewport): PASS');
+  const phone = computeScanCrop(3840, 2160, 390, 844, 'contain');
+  const pad = computeScanCrop(3840, 2160, 820, 1180, 'contain');
+  approxEqual(phone.x, pad.x); approxEqual(phone.width, pad.width);
+  console.log('computeScanCrop (contain: viewport-independent): PASS');
 }
 
-// The square can run past the bottom of a short viewport; the crop must stay
-// inside the frame rather than asking drawImage for pixels that do not exist.
+// cover: only a centred slice is on screen, and scanning what the player cannot
+// see is the bug being removed — so the crop stays inside that slice.
 {
-  const c = computeReticleCrop(480, 640, 400, 300);
-  assert.ok(c.x >= 0 && c.y >= 0, 'origin inside the frame');
-  assert.ok(c.x + c.width <= 480.01, 'right edge inside the frame');
-  assert.ok(c.y + c.height <= 640.01, 'bottom edge inside the frame');
-  console.log('computeReticleCrop (clamped to the frame): PASS');
+  const c = computeScanCrop(3840, 2160, 390, 844, 'cover');
+  const visW = 2160 * (390 / 844);
+  approxEqual(c.x, (3840 - visW) / 2 + visW * SCAN_INSET_FRAC);
+  approxEqual(c.width, visW * (1 - SCAN_INSET_FRAC * 2));
+  assert.ok(c.x + c.width <= 3840.01, 'stays inside the frame');
+  console.log('computeScanCrop (cover: the visible slice, inset): PASS');
 }
 
-// Degenerate input (no stream yet) must not produce a NaN crop.
+// The displayed rect is what the brackets are drawn onto: letterboxed under
+// contain, overflowing under cover.
 {
-  const c = computeReticleCrop(0, 0, 390, 844);
-  assert.ok(Number.isFinite(c.width) && Number.isFinite(c.height), 'no NaN crop');
-  console.log('computeReticleCrop (no video yet): PASS');
+  const d = computeDisplayRect(3840, 2160, 390, 844, 'contain');
+  approxEqual(d.width, 390);                 // width-limited
+  approxEqual(d.height, 390 * (2160 / 3840));
+  approxEqual(d.y, (844 - d.height) / 2);    // centred, bars above and below
+  assert.ok(d.y > 0, 'contain letterboxes a 16:9 frame in a tall screen');
+
+  const c = computeDisplayRect(3840, 2160, 390, 844, 'cover');
+  approxEqual(c.height, 844);
+  assert.ok(c.x < 0, 'cover overflows the sides');
+  console.log('computeDisplayRect (contain letterboxes, cover overflows): PASS');
+}
+
+// No stream yet must not produce NaN geometry.
+{
+  const c = computeScanCrop(0, 0, 390, 844, 'contain');
+  const d = computeDisplayRect(0, 0, 390, 844, 'contain');
+  assert.ok(Number.isFinite(c.width) && Number.isFinite(d.width), 'no NaN geometry');
+  console.log('scan geometry (no video yet): PASS');
 }

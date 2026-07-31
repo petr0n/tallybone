@@ -4,7 +4,27 @@
 // only appears when ENABLE_UPLOAD_FALLBACK is on (camera is required by default).
 import { html } from '../dom.js';
 import { tallyMark } from '../brand.js';
-import { RETICLE } from '../camera.js';
+import { computeDisplayRect, SCAN_INSET_FRAC } from '../camera.js';
+
+// Lay the dashed box onto the video's DISPLAYED rect, inset by the same
+// fraction the crop uses (camera.js's computeScanCrop) — so the box encloses
+// exactly the pixels that get scanned. The viewfinder is `contain` by default,
+// so that rect is letterboxed and moves with the frame's aspect; anchoring the
+// box to the screen instead would put it partly on the black bars.
+export function layoutScanBox(video, reticle, fit = 'contain') {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const bw = video.clientWidth, bh = video.clientHeight;
+  if (!vw || !vh || !bw || !bh) return;
+  const d = computeDisplayRect(vw, vh, bw, bh, fit);
+  // Under `cover` the rect overflows the box; the visible part is the box.
+  const left = Math.max(d.x, 0), top = Math.max(d.y, 0);
+  const right = Math.min(d.x + d.width, bw), bottom = Math.min(d.y + d.height, bh);
+  const insetX = (right - left) * SCAN_INSET_FRAC, insetY = (bottom - top) * SCAN_INSET_FRAC;
+  reticle.style.left = `${left + insetX}px`;
+  reticle.style.top = `${top + insetY}px`;
+  reticle.style.width = `${Math.max(0, right - left - insetX * 2)}px`;
+  reticle.style.height = `${Math.max(0, bottom - top - insetY * 2)}px`;
+}
 
 export function renderCapture({ onShutter, onHelp, onUpload, onBack } = {}) {
   const root = html('<div class="cap"></div>');
@@ -24,11 +44,6 @@ export function renderCapture({ onShutter, onHelp, onUpload, onBack } = {}) {
     '<div class="cap__bracket cap__bracket--br"></div>' +
     '<div class="cap__tip"><div class="cap__tip-badge">i</div>' +
     "<div style=\"font-size:13px;line-height:1.35;\">Leave a small gap between tiles — don't stack 'em or let 'em touch.</div></div></div>");
-  // Position from the same constants the crop uses (camera.js), so the square
-  // drawn here is exactly the square that gets scanned.
-  reticle.style.left = `${RETICLE.insetFrac * 100}%`;
-  reticle.style.right = `${RETICLE.insetFrac * 100}%`;
-  reticle.style.top = `${RETICLE.topFrac * 100}%`;
   root.appendChild(reticle);
 
   const header = html('<div class="cap__header"></div>');
@@ -63,5 +78,5 @@ export function renderCapture({ onShutter, onHelp, onUpload, onBack } = {}) {
   }
   root.appendChild(bottom);
 
-  return { el: root, video };
+  return { el: root, video, reticle };
 }

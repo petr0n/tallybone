@@ -69,6 +69,11 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
   // outlines go inside it so both share one coordinate space.
   const stage = html('<div class="rev__stage"></div>');
   if (photoBitmap) {
+    // The strip takes the capture's own shape, so the scan area fills it instead
+    // of sitting letterboxed behind grey bars — this photo IS what was scanned,
+    // and it is the thing the player is here to check. Capped so a tall frame
+    // cannot push the tile cards off the screen entirely.
+    photoWrap.style.aspectRatio = `${photoW} / ${photoH}`;
     const canvas = document.createElement('canvas');
     canvas.width = photoW; canvas.height = photoH;
     canvas.getContext('2d').drawImage(photoBitmap, 0, 0);
