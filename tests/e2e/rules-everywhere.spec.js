@@ -94,6 +94,9 @@ test('the rules cover the table rules players actually ask about', async ({ brow
   await expect(page.getByText(/close/i).first()).toBeVisible();
   await expect(page.getByText(/skip your next turn/i)).toBeVisible();
   await expect(page.getByText(/can.t go out on a double/i)).toBeVisible();
+  // With several doubles open at once, the table needs to know which one is
+  // owed first — otherwise players argue about it mid-round.
+  await expect(page.getByText(/order they were laid/i)).toBeVisible();
 
   // Turn order, and that the app RECORDS the table's double rather than
   // deciding it — these two cards used to read as if they contradicted.

@@ -117,7 +117,7 @@ export function renderRules({ onBack } = {}) {
   dblRow.appendChild(domino({ a: 8, b: 8, size: 44, vertical: false }));
   dblRow.appendChild(html('<div style="flex:1;font-size:14.5px;line-height:1.5;">Lay a double and you go again \u2014 but you have to <strong>close</strong> it by playing another bone on any open train.</div>'));
   dblCard.appendChild(dblRow);
-  dblCard.appendChild(html('<div style="font-size:14.5px;line-height:1.6;">\u00b7 Can\'t close it? Draw one from the <strong>boneyard</strong> and <strong>skip your next turn</strong>.<br>\u00b7 You can\'t go out on a double \u2014 the last bone you play can never be one.</div>'));
+  dblCard.appendChild(html('<div style="font-size:14.5px;line-height:1.6;">\u00b7 Can\'t close it? Draw one from the <strong>boneyard</strong> and <strong>skip your next turn</strong>.<br>\u00b7 More than one double open? They get closed in the <strong>order they were laid</strong> \u2014 oldest first.<br>\u00b7 You can\'t go out on a double \u2014 the last bone you play can never be one.</div>'));
   body.appendChild(dblCard);
 
   body.appendChild(html(
