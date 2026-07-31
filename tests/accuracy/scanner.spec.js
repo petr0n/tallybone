@@ -6,7 +6,10 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { addCameraMock, setCameraPhoto } from '../support/camera.js';
+import { blockCamera } from '../support/camera.js';
+
+const IOS_CHROME_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0 Mobile/15E148 Safari/604.1';
 
 const LABELS = JSON.parse(fs.readFileSync(path.resolve('tests/fixtures/labeled/labels.json'), 'utf8'));
 const PHOTOS = path.resolve('tests/fixtures/labeled/photos');
@@ -33,12 +36,24 @@ function scoreHand(pred, truth) {
   return { correct, total: truth.length * 2 };
 }
 
+// Photos go in through the FILE path, not the viewfinder.
+//
+// The corpus was shot long before the scan box existed, so pushing it through
+// the live-camera path measures the app's framing against hands that were never
+// framed that way — the comparison is invalid in both directions, and it would
+// make this gate move every time the viewfinder's geometry is touched. The file
+// path hands the scanner the photo's own pixels, which is what this gate is for:
+// ONNX-WASM / browser drift the Python eval can't see. Framing is a separate
+// question and needs a corpus shot through the app (tests/README.md).
 async function scanReview(page, photo) {
   await page.goto('/');
-  await setCameraPhoto(page, photo);
   await page.getByText('Just count my tiles').click();
-  await page.locator('.cap__shutter').click();
-  const gotReview = await page.locator('.rev__total').isVisible({ timeout: 60000 }).catch(() => false);
+  await expect(page.getByText('TAKE A PHOTO OF YOUR TILES', { exact: true })).toBeVisible({ timeout: 30000 });
+  await page.locator('input[type=file]').setInputFiles(photo);
+  // waitFor, not isVisible: isVisible does not retry, so it answered "no" before
+  // the scanner had even started and scored every hand as an empty read.
+  const gotReview = await page.locator('.rev__total')
+    .waitFor({ state: 'visible', timeout: 90000 }).then(() => true, () => false);
   if (!gotReview) return []; // empty/failed scan -> no tiles
   const cards = page.locator('.rev__card');
   const n = await cards.count();
@@ -55,8 +70,9 @@ test('scanner per-half accuracy on labeled corpus, no regression vs baseline', a
   const subset = LABELS.slice(0, N);
   test.setTimeout(30_000 + subset.length * 20_000);
 
-  const ctx = await browser.newContext();
-  await addCameraMock(ctx);
+  // iOS UA + a blocked live camera is how the app offers the file path.
+  const ctx = await browser.newContext({ userAgent: IOS_CHROME_UA });
+  await blockCamera(ctx);
   const page = await ctx.newPage();
 
   let correct = 0, total = 0, scanned = 0;
