@@ -4,26 +4,21 @@
 // only appears when ENABLE_UPLOAD_FALLBACK is on (camera is required by default).
 import { html } from '../dom.js';
 import { tallyMark } from '../brand.js';
-import { computeDisplayRect, SCAN_INSET_FRAC } from '../camera.js';
+import { computeScanBox } from '../camera.js';
 
-// Lay the dashed box onto the video's DISPLAYED rect, inset by the same
-// fraction the crop uses (camera.js's computeScanCrop) — so the box encloses
-// exactly the pixels that get scanned. The viewfinder is `contain` by default,
-// so that rect is letterboxed and moves with the frame's aspect; anchoring the
-// box to the screen instead would put it partly on the black bars.
+// Draw the brackets on camera.js's scan box — the same rect captureScanArea
+// crops to, so what the box encloses is exactly what gets scanned. Sized from
+// the image on screen rather than the screen, since the viewfinder is `contain`
+// and a letterboxed frame would otherwise leave the box over the black bars.
 export function layoutScanBox(video, reticle, fit = 'contain') {
   const vw = video.videoWidth, vh = video.videoHeight;
   const bw = video.clientWidth, bh = video.clientHeight;
   if (!vw || !vh || !bw || !bh) return;
-  const d = computeDisplayRect(vw, vh, bw, bh, fit);
-  // Under `cover` the rect overflows the box; the visible part is the box.
-  const left = Math.max(d.x, 0), top = Math.max(d.y, 0);
-  const right = Math.min(d.x + d.width, bw), bottom = Math.min(d.y + d.height, bh);
-  const insetX = (right - left) * SCAN_INSET_FRAC, insetY = (bottom - top) * SCAN_INSET_FRAC;
-  reticle.style.left = `${left + insetX}px`;
-  reticle.style.top = `${top + insetY}px`;
-  reticle.style.width = `${Math.max(0, right - left - insetX * 2)}px`;
-  reticle.style.height = `${Math.max(0, bottom - top - insetY * 2)}px`;
+  const b = computeScanBox(vw, vh, bw, bh, fit);
+  reticle.style.left = `${b.x}px`;
+  reticle.style.top = `${b.y}px`;
+  reticle.style.width = `${b.width}px`;
+  reticle.style.height = `${b.height}px`;
 }
 
 export function renderCapture({ onShutter, onHelp, onUpload, onBack } = {}) {

@@ -59,10 +59,10 @@ export function captureFullFrame(videoEl, canvasFactory) {
   return ctx.getImageData(0, 0, w, h);
 }
 
-// The scan area is the VISIBLE frame inset by this much on every side. Same
-// value and same reason as GUIDE_INSET_FRAC above: the margin is what kept
-// background clutter at the frame's edges from producing false detections.
-export const SCAN_INSET_FRAC = 0.06;
+// The blue brackets: a square about half the screen, sized from the displayed
+// image's width and dropped `topFrac` down it. The scanner reads exactly what
+// is inside — put your tiles in the box.
+export const SCAN_BOX = { widthFrac: 0.84, topFrac: 0.16 };
 
 /**
  * Where the video's pixels actually land on screen, in CSS px relative to the
@@ -84,18 +84,41 @@ export function computeDisplayRect(videoW, videoH, viewW, viewH, fit = 'contain'
 }
 
 /**
- * The scan area in NATIVE video pixels: the visible region, inset.
+ * The scan box in CSS px — where the brackets are drawn.
  *
- * With `contain` the whole frame is visible, so this is simply the frame minus
- * its margin. With `cover` only a centred slice is on screen, and scanning what
- * the player cannot see is the bug this whole change exists to remove — so the
- * slice is computed first and the inset applied inside it.
+ * Sized from the image ON SCREEN, never from the screen itself: under `contain`
+ * a 16:9 frame in a tall phone is letterboxed, and a screen-anchored box would
+ * hang over the black bars promising a scan area that has no pixels behind it.
+ * The square shrinks to fit a short image rather than spilling off it.
  */
-export function computeScanCrop(videoW, videoH, viewW, viewH, fit = 'contain', insetFrac = SCAN_INSET_FRAC) {
-  if (!videoW || !videoH) return { x: 0, y: 0, width: videoW || 1, height: videoH || 1 };
-  if (fit === 'cover' && viewW && viewH) return computeGuideCrop(videoW, videoH, viewW / viewH, insetFrac);
-  const insetX = videoW * insetFrac, insetY = videoH * insetFrac;
-  return { x: insetX, y: insetY, width: videoW - insetX * 2, height: videoH - insetY * 2 };
+export function computeScanBox(videoW, videoH, viewW, viewH, fit = 'contain', box = SCAN_BOX) {
+  const d = computeDisplayRect(videoW, videoH, viewW, viewH, fit);
+  // Under `cover` the image overflows the viewport; only the on-screen part counts.
+  const left = Math.max(d.x, 0), top = Math.max(d.y, 0);
+  const right = Math.min(d.x + d.width, viewW), bottom = Math.min(d.y + d.height, viewH);
+  const availW = Math.max(0, right - left), availH = Math.max(0, bottom - top);
+  const side = Math.max(0, Math.min(availW * box.widthFrac, availH * 0.92));
+  const y = Math.min(top + availH * box.topFrac, bottom - side);
+  return { x: left + (availW - side) / 2, y, width: side, height: side, display: d };
+}
+
+/**
+ * The same box in NATIVE video pixels — what the scanner actually reads, and
+ * what Review shows back. One box, two coordinate spaces, so they cannot
+ * disagree about where the scan area is.
+ */
+export function computeScanCrop(videoW, videoH, viewW, viewH, fit = 'contain', box = SCAN_BOX) {
+  if (!videoW || !videoH || !viewW || !viewH) {
+    return { x: 0, y: 0, width: videoW || 1, height: videoH || 1 };
+  }
+  const b = computeScanBox(videoW, videoH, viewW, viewH, fit, box);
+  const { x: dx, y: dy, scale } = b.display;
+  const x = Math.max(0, (b.x - dx) / scale), y = Math.max(0, (b.y - dy) / scale);
+  return {
+    x, y,
+    width: Math.max(1, Math.min(b.width / scale, videoW - x)),
+    height: Math.max(1, Math.min(b.height / scale, videoH - y)),
+  };
 }
 
 // Capture exactly what the dashed box encloses. This is what the scanner reads,

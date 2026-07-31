@@ -1,6 +1,6 @@
 // app/src/camera.test.js
 import assert from 'node:assert';
-import { computeGuideCrop, computeScanCrop, computeDisplayRect, SCAN_INSET_FRAC } from './camera.js';
+import { computeGuideCrop, computeScanCrop, computeScanBox, computeDisplayRect, SCAN_BOX } from './camera.js';
 
 function approxEqual(a, b, tol = 0.01) {
   assert.ok(Math.abs(a - b) < tol, `expected ${a} ~= ${b}`);
@@ -41,62 +41,61 @@ function approxEqual(a, b, tol = 0.01) {
 }
 
 
-// --- the scan area ----------------------------------------------------------
-// The dashed box now BOUNDS the scan, so the rect drawn on screen and the rect
-// handed to the scanner must describe the same pixels. The viewfinder runs
-// `contain` by default, which is where the first attempt went wrong: it assumed
-// `cover` and put the box partly on the letterbox bars.
+// --- the scan box -----------------------------------------------------------
+// The blue brackets mark a box of about half the screen, and the scanner reads
+// exactly what is inside it. Two rules it must never break: the box stays
+// INSIDE the displayed image (the viewfinder is `contain`, so a frame narrower
+// than the screen is letterboxed and a screen-anchored box would sit on the
+// bars), and the crop is that same box in native pixels.
 
-// contain: the whole frame is on screen, so the scan area is just the frame
-// minus its margin — no viewport arithmetic can creep in.
+// A portrait stream filling a portrait screen: the box is a square 84% of the
+// image's width, sitting proud of the edges — not the whole frame.
 {
-  const c = computeScanCrop(3840, 2160, 390, 844, 'contain');
-  approxEqual(c.x, 3840 * SCAN_INSET_FRAC);
-  approxEqual(c.y, 2160 * SCAN_INSET_FRAC);
-  approxEqual(c.width, 3840 * (1 - SCAN_INSET_FRAC * 2));
-  approxEqual(c.height, 2160 * (1 - SCAN_INSET_FRAC * 2));
-  console.log('computeScanCrop (contain: the frame, inset): PASS');
+  const b = computeScanBox(2160, 3840, 390, 844, 'contain');
+  approxEqual(b.width, 390 * SCAN_BOX.widthFrac, 0.5);
+  approxEqual(b.height, b.width, 0.5);
+  assert.ok(b.width * b.height < 390 * 844 * 0.6, 'covers about half the screen, not all of it');
+  console.log('computeScanBox (portrait stream): PASS');
 }
 
-// The viewport must not change the answer under contain — the whole frame is
-// visible whatever shape the screen is.
-{
-  const phone = computeScanCrop(3840, 2160, 390, 844, 'contain');
-  const pad = computeScanCrop(3840, 2160, 820, 1180, 'contain');
-  approxEqual(phone.x, pad.x); approxEqual(phone.width, pad.width);
-  console.log('computeScanCrop (contain: viewport-independent): PASS');
-}
-
-// cover: only a centred slice is on screen, and scanning what the player cannot
-// see is the bug being removed — so the crop stays inside that slice.
-{
-  const c = computeScanCrop(3840, 2160, 390, 844, 'cover');
-  const visW = 2160 * (390 / 844);
-  approxEqual(c.x, (3840 - visW) / 2 + visW * SCAN_INSET_FRAC);
-  approxEqual(c.width, visW * (1 - SCAN_INSET_FRAC * 2));
-  assert.ok(c.x + c.width <= 3840.01, 'stays inside the frame');
-  console.log('computeScanCrop (cover: the visible slice, inset): PASS');
-}
-
-// The displayed rect is what the brackets are drawn onto: letterboxed under
-// contain, overflowing under cover.
+// A 16:9 frame in a tall screen letterboxes hard. The box must shrink to fit
+// the image rather than spill onto the black bars.
 {
   const d = computeDisplayRect(3840, 2160, 390, 844, 'contain');
-  approxEqual(d.width, 390);                 // width-limited
-  approxEqual(d.height, 390 * (2160 / 3840));
-  approxEqual(d.y, (844 - d.height) / 2);    // centred, bars above and below
-  assert.ok(d.y > 0, 'contain letterboxes a 16:9 frame in a tall screen');
+  const b = computeScanBox(3840, 2160, 390, 844, 'contain');
+  assert.ok(b.y >= d.y - 0.01, 'top edge on the image');
+  assert.ok(b.y + b.height <= d.y + d.height + 0.01, 'bottom edge on the image');
+  assert.ok(b.x >= d.x - 0.01 && b.x + b.width <= d.x + d.width + 0.01, 'sides on the image');
+  console.log('computeScanBox (letterboxed frame stays on the image): PASS');
+}
 
-  const c = computeDisplayRect(3840, 2160, 390, 844, 'cover');
-  approxEqual(c.height, 844);
-  assert.ok(c.x < 0, 'cover overflows the sides');
-  console.log('computeDisplayRect (contain letterboxes, cover overflows): PASS');
+// The crop is the box, in native pixels — a real subset of the frame, not the
+// frame with a trim. Round-trip it back through the display scale to check.
+{
+  const d = computeDisplayRect(2160, 3840, 390, 844, 'contain');
+  const b = computeScanBox(2160, 3840, 390, 844, 'contain');
+  const c = computeScanCrop(2160, 3840, 390, 844, 'contain');
+  approxEqual(c.x, (b.x - d.x) / d.scale, 0.5);
+  approxEqual(c.y, (b.y - d.y) / d.scale, 0.5);
+  approxEqual(c.width, b.width / d.scale, 0.5);
+  assert.ok(c.width * c.height < 2160 * 3840 * 0.5, 'a genuine crop, not the whole frame');
+  console.log('computeScanCrop (is the box, in native pixels): PASS');
+}
+
+// The crop can never ask drawImage for pixels outside the frame.
+{
+  for (const [vw, vh, w, h] of [[3840, 2160, 390, 844], [2160, 3840, 390, 844], [1280, 720, 820, 1180]]) {
+    const c = computeScanCrop(vw, vh, w, h, 'contain');
+    assert.ok(c.x >= -0.01 && c.y >= -0.01, 'origin inside the frame');
+    assert.ok(c.x + c.width <= vw + 0.01 && c.y + c.height <= vh + 0.01, 'extent inside the frame');
+  }
+  console.log('computeScanCrop (always inside the frame): PASS');
 }
 
 // No stream yet must not produce NaN geometry.
 {
   const c = computeScanCrop(0, 0, 390, 844, 'contain');
-  const d = computeDisplayRect(0, 0, 390, 844, 'contain');
-  assert.ok(Number.isFinite(c.width) && Number.isFinite(d.width), 'no NaN geometry');
+  const b = computeScanBox(0, 0, 390, 844, 'contain');
+  assert.ok(Number.isFinite(c.width) && Number.isFinite(b.width), 'no NaN geometry');
   console.log('scan geometry (no video yet): PASS');
 }

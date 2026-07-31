@@ -3,7 +3,7 @@
 // screens; the game code is read from localStorage['tb.active'] (set by main.js
 // once a seat is confirmed) rather than scraped from the code-box divs.
 import { expect } from '@playwright/test';
-import { addCameraMock, setCameraPhoto } from './camera.js';
+import { blockCamera } from './camera.js';
 
 // A fresh phone = an isolated browser context (own storage) + page on Home.
 export async function newPhone(browser) {
@@ -60,10 +60,23 @@ export async function callGame(page) {
   await page.getByRole('button', { name: /Call it/ }).click();
 }
 
-// A phone with the camera mocked, sitting on Home.
+// A phone that can scan, sitting on Home.
+//
+// It takes the PHOTO path (iOS UA + a blocked live camera), not the viewfinder.
+// These are game-flow tests — six phones, rounds, standings, a winner — where
+// the scan is only a way to produce a hand to turn in. The corpus photos fill
+// the frame, so putting them through the viewfinder now means the scan box
+// slices tiles in half at its edge and Review blocks on twins: a fixture
+// problem, not a game-flow failure. The photo path hands the scanner the whole
+// image, as it always did, keeping these tests about what they test.
+// The viewfinder's own geometry is covered by scan.spec.js and
+// outline-alignment.spec.js, which do not depend on reading a hand correctly.
+const IOS_CHROME_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0 Mobile/15E148 Safari/604.1';
+
 export async function newScanPhone(browser) {
-  const context = await browser.newContext();
-  await addCameraMock(context);
+  const context = await browser.newContext({ userAgent: IOS_CHROME_UA });
+  await blockCamera(context);
   const page = await context.newPage();
   await gotoHome(page);
   return { context, page };
@@ -73,19 +86,25 @@ export async function newScanPhone(browser) {
 // Review screen blocks. Nudge one tile until the block clears — the exact total
 // doesn't matter (gameplay asserts invariants), only that a real hand submits.
 async function clearTwins(page) {
-  for (let i = 0; i < 8; i++) {
+  // Nudge a card that is ACTUALLY flagged as a twin, not just the last one:
+  // several independent pairs can be blocked at once, and hammering one card
+  // cannot resolve the others. Each nudge changes one face, so the duplicates
+  // resolve; 40 is far more than any real hand needs and still terminates.
+  for (let i = 0; i < 40; i++) {
     const label = await page.locator('.rev__footer .tb-btn').first().innerText();
     if (!/twins/i.test(label)) return;
-    await page.locator('.rev__card .plus').last().click();
+    const twin = page.locator('.rev__card').filter({ hasText: "Twins — one's wrong" }).first();
+    if (!(await twin.count())) return;
+    await twin.locator('.plus').first().click();
   }
 }
 
 // In-game: scan a photo through the real scanner, then turn the reading in.
 // Returns the round total that landed (read off the Review screen).
 export async function scanTurnIn(page, photoPath) {
-  await setCameraPhoto(page, photoPath);
   await page.getByRole('button', { name: 'Scan my tiles' }).click();
-  await page.locator('.cap__shutter').click();
+  await expect(page.getByText('TAKE A PHOTO OF YOUR TILES', { exact: true })).toBeVisible({ timeout: 30000 });
+  await page.locator('input[type=file]').setInputFiles(photoPath);
   await expect(page.locator('.rev__total')).toBeVisible({ timeout: 90000 });
   await clearTwins(page);
   const total = Number(await page.locator('.rev__total').innerText());
