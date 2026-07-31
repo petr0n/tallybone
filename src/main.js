@@ -25,6 +25,7 @@ import { html } from './dom.js';
 import { isIOS, isIOSNonSafari } from './platform.js';
 import * as net from './net.js';
 import { measure, play, enter, resetGroup, reducedMotion } from './motion.js';
+import { scanEvent, postScanLog } from './scanlog.js';
 
 // On iOS every browser is WebKit; the live camera (getUserMedia) is unreliable
 // outside Safari, so always offer the native photo-capture path there.
@@ -40,6 +41,7 @@ const copyText = (t) => { if (navigator.clipboard) navigator.clipboard.writeText
 let stream = null;
 let currentVideo = null;
 let captureRelayout = null;   // window resize handler owned by the capture screen
+let lastCaptureGeom = null;   // viewfinder geometry of the last capture (?tail=1 telemetry)
 let scanContext = 'solo';   // 'solo' | 'ingame'
 let lastScan = null;        // { tiles, sourceImageData, photoBitmap, photoW, photoH }
 let scanRunId = 0;          // bumped on nav/back to invalidate an in-flight scan
@@ -351,10 +353,15 @@ function doScan() {
   if (!currentVideo || !currentVideo.videoWidth) return;
   // Only what the brackets enclose: they are the promise the screen makes, and
   // Review shows this same image back, so the two cannot disagree.
+  lastCaptureGeom = {
+    videoW: currentVideo.videoWidth, videoH: currentVideo.videoHeight,
+    boxW: currentVideo.clientWidth, boxH: currentVideo.clientHeight,
+  };
   navGo(makeShowScanning(captureScanArea(currentVideo, canvasFactory, OBJECT_FIT())));
 }
 function doUpload(file) {
   if (!file) return;
+  lastCaptureGeom = null;   // a library photo has no viewfinder geometry
   fileToImageData(file, canvasFactory).then((imageData) => navGo(makeShowScanning(imageData)));
 }
 function makeShowScanning(imageData) {
@@ -365,6 +372,7 @@ function makeShowScanning(imageData) {
     (async () => {
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       let results;
+      const t0 = Date.now();
       try {
         results = await scanWithProgress(imageData, canvasFactory, (m) => scanning.setStatus(m));
       } catch (err) {
@@ -382,6 +390,14 @@ function makeShowScanning(imageData) {
         bbox: r.bbox, corners: r.corners,
       }));
       lastScan = { tiles, sourceImageData: imageData, photoBitmap: bitmap, photoW: imageData.width, photoH: imageData.height };
+      // ?tail=1 only: stream the read to `wrangler tail` so a real-device scan
+      // is observable. What it read here, versus what gets submitted after the
+      // player fixes it, is the accuracy measurement.
+      postScanLog(scanEvent('scan', {
+        ...(lastCaptureGeom || {}),
+        cropW: imageData.width, cropH: imageData.height,
+        ms: Date.now() - t0, tiles,
+      }));
       navSwap(makeShowReview(lastScan));
     })();
   };
@@ -397,6 +413,8 @@ function makeShowReview(scan) {
       onRules: () => navGo(showRules),
       onSubmit: (total, corrected) => {
         if (ENABLE_CORPUS_CAPTURE) { /* TODO: post corrected payload to /api/handscan */ }
+        // The corrected hand — ground truth for the scan logged a moment ago.
+        postScanLog(scanEvent('submit', { total, tiles: corrected }));
         if (scanContext === 'ingame') navGo(makeShowGameSubmit(corrected));
         else navGo(makeShowSubmitted(total));
       },
