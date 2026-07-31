@@ -8,10 +8,15 @@
 //   1. what we ASKED for vs what the camera GAVE (aspect + resolution),
 //   2. what the camera COULD give (capabilities), so we know if a different
 //      request would widen the view,
-//   3. how much of that frame the preview is hiding, since `object-fit: cover`
-//      shows only a slice of what captureFullFrame() actually scans.
+//   3. the SCAN BOX in real pixels — the dashed square bounds the scan
+//      (camera.js's computeScanCrop), so this is what the scanner receives and
+//      what decides whether pips are readable.
 // Read the same page on two devices and the difference is the answer.
-import { CAMERA_MODES } from './camera.js';
+//
+// Measured on a Samsung (2026-07-31): asked 3840x2160, got 2160x3840 (the
+// camera rotated it to portrait), preview box 384x742, scan box 1814x1814 —
+// 40% of the frame, ~3.3MP to the scanner.
+import { CAMERA_MODES, computeScanCrop } from './camera.js';
 
 const qp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch { return null; } };
 
@@ -51,6 +56,9 @@ export function attachCameraDiag(videoEl, stream) {
     const box = videoEl.getBoundingClientRect();
     const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
     const vis = visibleFraction(vw, vh, box.width, box.height);
+    const crop = (vw && vh && box.width && box.height)
+      ? computeScanCrop(vw, vh, box.width, box.height, OBJECT_FIT()) : null;
+    const cropShare = crop ? (crop.width * crop.height) / (vw * vh) : 0;
     const ratio = (w, h) => (w && h ? (w / h).toFixed(3) : '—');
     const range = (r) => (r && r.max ? `${r.min ?? '?'}–${r.max}` : 'n/a');
 
@@ -67,8 +75,16 @@ export function attachCameraDiag(videoEl, stream) {
       row('cap height', range(caps.height)) +
       `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.25);"></div>` +
       row('preview box', `${Math.round(box.width)}×${Math.round(box.height)} (${ratio(box.width, box.height)})`) +
-      row('visible', `${(vis.w * 100).toFixed(1)}% wide × ${(vis.h * 100).toFixed(1)}% tall`) +
-      row('hidden', `${(100 - vis.w * vis.h * 100).toFixed(1)}% of the frame is scanned but NOT shown`) +
+      row('shown', OBJECT_FIT() === 'contain'
+        ? '100% of the frame (letterboxed to fit)'
+        : `${(vis.w * 100).toFixed(1)}% wide × ${(vis.h * 100).toFixed(1)}% tall`) +
+      // What the scanner ACTUALLY reads. The dashed box bounds the scan now, so
+      // the old "N% is scanned but NOT shown" line was wrong twice over: nothing
+      // is hidden under contain, and the scan is a subset of what's shown, not a
+      // superset. This is the number that decides whether pips are readable.
+      row('scan box', crop
+        ? `${Math.round(crop.width)}×${Math.round(crop.height)} px  (${(cropShare * 100).toFixed(0)}% of the frame)`
+        : '—') +
       `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.25);"></div>` +
       row('screen', `${screen.width}×${screen.height} @${window.devicePixelRatio}x`) +
       row('viewport', `${innerWidth}×${innerHeight}`);
