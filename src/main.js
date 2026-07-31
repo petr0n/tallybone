@@ -8,7 +8,7 @@
 import './style.css';
 import './screens.css';
 import { ENABLE_UPLOAD_FALLBACK, ENABLE_CORPUS_CAPTURE } from './config.js';
-import { requestCamera, stopCamera, captureFullFrame } from './camera.js';
+import { requestCamera, stopCamera, captureReticleFrame } from './camera.js';
 import { DIAG_ON, attachCameraDiag, CAMERA_MODE, OBJECT_FIT } from './camera-diag.js';
 import { fileToImageData } from './upload.js';
 import { initScanner, scanWithProgress } from './scan.js';
@@ -338,7 +338,9 @@ function showCameraBlocked() {
 }
 function doScan() {
   if (!currentVideo || !currentVideo.videoWidth) return;
-  navGo(makeShowScanning(captureFullFrame(currentVideo, canvasFactory)));
+  // Only what the brackets enclose: they are the promise the screen makes, and
+  // Review shows this same image back, so the two cannot disagree.
+  navGo(makeShowScanning(captureReticleFrame(currentVideo, canvasFactory)));
 }
 function doUpload(file) {
   if (!file) return;

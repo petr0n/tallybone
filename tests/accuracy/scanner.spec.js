@@ -7,6 +7,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { addCameraMock, setCameraPhoto } from '../support/camera.js';
+import { RETICLE } from '../../src/camera.js';
 
 const LABELS = JSON.parse(fs.readFileSync(path.resolve('tests/fixtures/labeled/labels.json'), 'utf8'));
 const PHOTOS = path.resolve('tests/fixtures/labeled/photos');
@@ -55,8 +56,14 @@ test('scanner per-half accuracy on labeled corpus, no regression vs baseline', a
   const subset = LABELS.slice(0, N);
   test.setTimeout(30_000 + subset.length * 20_000);
 
-  const ctx = await browser.newContext();
-  await addCameraMock(ctx);
+  // The brackets bound the scan (camera.js::captureReticleFrame), so the corpus
+  // photo is framed inside them — the hand a player is told to present. Feeding
+  // a frame-filling photo would measure tiles the app deliberately no longer
+  // reads, not the scanner. RETICLE comes from the app so the harness cannot
+  // describe a different square than the product does.
+  const view = { w: 390, h: 844 };
+  const ctx = await browser.newContext({ viewport: view.w && { width: view.w, height: view.h } });
+  await addCameraMock(ctx, { inReticle: { view, reticle: RETICLE } });
   const page = await ctx.newPage();
 
   let correct = 0, total = 0, scanned = 0;

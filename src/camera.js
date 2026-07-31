@@ -50,13 +50,54 @@ export async function startCamera(videoEl) {
   return stream || null;
 }
 
-// Full-frame capture for the full-bleed Tallybone viewfinder (what you see is
-// what you scan). captureFrame() below still crops to the 3:4 guide box for
-// the legacy bounded-card layout; the new capture screen uses this instead.
+// Full-frame capture. Kept for callers with no viewfinder geometry (the upload
+// path hands over a photo from the library, which has no brackets to obey).
 export function captureFullFrame(videoEl, canvasFactory) {
   const w = videoEl.videoWidth, h = videoEl.videoHeight;
   const { ctx } = canvasFactory(w, h);
   ctx.drawImage(videoEl, 0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h);
+}
+
+// The blue brackets as fractions of the VIEWPORT. capture.js positions
+// `.cap__reticle` from these instead of the CSS repeating them, so the square
+// on screen and the crop below cannot drift apart — a reticle that lies about
+// what gets scanned is worse than no reticle.
+export const RETICLE = { insetFrac: 0.08, topFrac: 0.23 };
+
+/**
+ * The reticle rectangle in NATIVE video pixels.
+ *
+ * `.cap__video` is `object-fit: cover`, so whenever the frame's aspect differs
+ * from the screen's, what the player sees is a centred crop of the native frame
+ * — often a small slice of it. Map through that visible region first, then
+ * apply the reticle's fractions inside it.
+ */
+export function computeReticleCrop(videoW, videoH, viewW, viewH, r = RETICLE) {
+  if (!videoW || !videoH || !viewW || !viewH) {
+    return { x: 0, y: 0, width: videoW || 1, height: videoH || 1 };
+  }
+  const scale = Math.max(viewW / videoW, viewH / videoH);   // native px -> css px
+  const visW = viewW / scale, visH = viewH / scale;         // the region cover shows
+  const x = (videoW - visW) / 2 + (viewW * r.insetFrac) / scale;
+  const y = (videoH - visH) / 2 + (viewH * r.topFrac) / scale;
+  const side = (viewW * (1 - r.insetFrac * 2)) / scale;     // square, width drives it
+  const left = Math.max(0, x), top = Math.max(0, y);
+  return {
+    x: left, y: top,
+    width: Math.max(1, Math.min(side, videoW - left)),
+    height: Math.max(1, Math.min(side, videoH - top)),
+  };
+}
+
+// Capture exactly what the brackets enclose. This is what the scanner reads, so
+// a tile outside the square is genuinely out of play.
+export function captureReticleFrame(videoEl, canvasFactory) {
+  const { x, y, width, height } = computeReticleCrop(
+    videoEl.videoWidth, videoEl.videoHeight, videoEl.clientWidth, videoEl.clientHeight);
+  const w = Math.round(width), h = Math.round(height);
+  const { ctx } = canvasFactory(w, h);
+  ctx.drawImage(videoEl, x, y, width, height, 0, 0, w, h);
   return ctx.getImageData(0, 0, w, h);
 }
 

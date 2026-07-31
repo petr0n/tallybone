@@ -4,6 +4,7 @@
 // only appears when ENABLE_UPLOAD_FALLBACK is on (camera is required by default).
 import { html } from '../dom.js';
 import { tallyMark } from '../brand.js';
+import { RETICLE } from '../camera.js';
 
 export function renderCapture({ onShutter, onHelp, onUpload, onBack } = {}) {
   const root = html('<div class="cap"></div>');
@@ -11,12 +12,24 @@ export function renderCapture({ onShutter, onHelp, onUpload, onBack } = {}) {
   const video = html('<video class="cap__video" autoplay playsinline muted></video>');
   root.appendChild(video);
   root.appendChild(html('<div class="cap__scrim"></div>'));
-  root.appendChild(html(
+  // The tip lives inside the reticle so it always sits just BELOW the brackets
+  // rather than across them (it was pinned to top:112px and overlapped on
+  // shorter viewports). Reticle is pointer-events:none; nothing here is tappable.
+  const reticle = html(
     '<div class="cap__reticle">' +
+    '<div class="cap__scanarea"></div>' +
     '<div class="cap__bracket cap__bracket--tl"></div>' +
     '<div class="cap__bracket cap__bracket--tr"></div>' +
     '<div class="cap__bracket cap__bracket--bl"></div>' +
-    '<div class="cap__bracket cap__bracket--br"></div></div>'));
+    '<div class="cap__bracket cap__bracket--br"></div>' +
+    '<div class="cap__tip"><div class="cap__tip-badge">i</div>' +
+    "<div style=\"font-size:13px;line-height:1.35;\">Leave a small gap between tiles — don't stack 'em or let 'em touch.</div></div></div>");
+  // Position from the same constants the crop uses (camera.js), so the square
+  // drawn here is exactly the square that gets scanned.
+  reticle.style.left = `${RETICLE.insetFrac * 100}%`;
+  reticle.style.right = `${RETICLE.insetFrac * 100}%`;
+  reticle.style.top = `${RETICLE.topFrac * 100}%`;
+  root.appendChild(reticle);
 
   const header = html('<div class="cap__header"></div>');
   if (onBack) {
@@ -33,10 +46,6 @@ export function renderCapture({ onShutter, onHelp, onUpload, onBack } = {}) {
   if (onHelp) helpBtn.addEventListener('click', onHelp);
   header.appendChild(helpBtn);
   root.appendChild(header);
-
-  root.appendChild(html(
-    '<div class="cap__tip"><div class="cap__tip-badge">i</div>' +
-    "<div style=\"font-size:14.5px;line-height:1.4;\">Leave a small gap between tiles — don't stack 'em or let 'em touch.</div></div>"));
 
   const bottom = html('<div class="cap__bottom"></div>');
   const shutter = html('<div class="cap__shutter tb-press" role="button" aria-label="Scan"><div class="cap__shutter-inner">SCAN</div></div>');

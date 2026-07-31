@@ -35,22 +35,34 @@
   position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(180deg, rgba(13,0,0,0.75) 0%, rgba(13,0,0,0) 22%, rgba(13,0,0,0) 52%, rgba(13,0,0,0.85) 78%);
 }
-.cap__reticle { position: absolute; left: 8%; right: 8%; top: 23%; aspect-ratio: 1; pointer-events: none; }
+/* left/right/top are set by capture.js from camera.js's RETICLE — the crop and
+   the brackets must describe the same square. Only the shape lives here. */
+.cap__reticle { position: absolute; aspect-ratio: 1; pointer-events: none; }
+/* The brackets alone left the edges of the scan area to the imagination, and
+   everything outside this line is now genuinely not scanned — so draw it. Its
+   own element rather than a border on the reticle: the tip and the brackets are
+   children, and they must not inherit the dash or its opacity. */
+.cap__scanarea {
+  position: absolute; inset: 0; border: 2.5px dashed var(--sky);
+  border-radius: 14px; opacity: 0.72;
+}
 .cap__bracket { position: absolute; width: 52px; height: 52px; }
 .cap__bracket--tl { left: 0; top: 0; border-left: 5px solid var(--sky); border-top: 5px solid var(--sky); border-radius: 14px 0 0 0; }
 .cap__bracket--tr { right: 0; top: 0; border-right: 5px solid var(--sky); border-top: 5px solid var(--sky); border-radius: 0 14px 0 0; }
 .cap__bracket--bl { left: 0; bottom: 0; border-left: 5px solid var(--sky); border-bottom: 5px solid var(--sky); border-radius: 0 0 0 14px; }
 .cap__bracket--br { right: 0; bottom: 0; border-right: 5px solid var(--sky); border-bottom: 5px solid var(--sky); border-radius: 0 0 14px 0; }
 .cap__header { position: relative; padding: 16px 20px 0; display: flex; align-items: center; gap: 14px; color: var(--bone); }
+/* Sits INSIDE .cap__reticle so it tracks the brackets at any viewport instead
+   of being pinned to a px offset that overlapped them on shorter screens. */
 .cap__tip {
-  position: absolute; left: 20px; right: 20px; top: 112px; display: flex; gap: 12px;
-  align-items: flex-start; background: var(--bone); border: var(--ol-base) solid var(--ink);
-  border-radius: var(--r-card); box-shadow: var(--shadow-raised); padding: 13px 15px; color: var(--ink);
+  position: absolute; left: 0; right: 0; top: calc(100% + 14px); display: flex; gap: 9px;
+  align-items: center; background: var(--bone); border: var(--ol-sm) solid var(--ink);
+  border-radius: var(--r-md); box-shadow: 3px 3px 0 var(--ink); padding: 9px 12px; color: var(--ink);
 }
 .cap__tip-badge {
-  width: 26px; height: 26px; flex: none; border-radius: 50%; background: var(--sky);
-  border: 2.5px solid var(--ink); display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-size: 15px;
+  width: 20px; height: 20px; flex: none; border-radius: 50%; background: var(--sky);
+  border: 2px solid var(--ink); display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 12px;
 }
 .cap__bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 20px 34px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
 .cap__shutter {
@@ -103,8 +115,13 @@
 /* ---------- review ---------- */
 .rev { position: absolute; inset: 0; display: flex; flex-direction: column; background-color: var(--concrete); background-image: url('./assets/app-bg.png'); background-size: cover; }
 .rev__header { background: var(--ink); color: var(--bone); padding: 14px 20px 16px; display: flex; align-items: center; gap: 14px; flex: none; }
-.rev__body { flex: 1; overflow: auto; padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
-.rev__photo { position: relative; width: 100%; height: 210px; border: var(--ol-base) solid var(--ink); border-radius: var(--r-card); overflow: hidden; background: #B8B3A5; flex: none; }
+/* Tight at the top so the photo sits high on the screen — it is the thing the
+   player checks first, and it used to open 16px down behind a full gap. */
+.rev__body { flex: 1; overflow: auto; padding: 6px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+/* Square, because the scan area is square (camera.js's RETICLE): a landscape
+   strip would letterbox every capture behind grey bars and shrink the very
+   thing the player is here to check. */
+.rev__photo { position: relative; width: 100%; aspect-ratio: 1; border: var(--ol-base) solid var(--ink); border-radius: var(--r-card); overflow: hidden; background: #B8B3A5; flex: none; }
 /* actual rectified tile photo — the real pixels, big enough to read the pips */
 .rev__crop { width: 100%; max-width: 300px; height: auto; border: 2.5px solid var(--ink); border-radius: 8px; background: #C9C4B4; display: block; margin: 0 auto; }
 .rev__steprow { display: flex; align-items: center; justify-content: center; gap: 6px; }

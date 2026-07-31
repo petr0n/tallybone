@@ -4,6 +4,7 @@
 // once a seat is confirmed) rather than scraped from the code-box divs.
 import { expect } from '@playwright/test';
 import { addCameraMock, setCameraPhoto } from './camera.js';
+import { RETICLE } from '../../src/camera.js';
 
 // A fresh phone = an isolated browser context (own storage) + page on Home.
 export async function newPhone(browser) {
@@ -61,9 +62,16 @@ export async function callGame(page) {
 }
 
 // A phone with the camera mocked, sitting on Home.
+//
+// The photo is framed INSIDE the blue brackets, and the context is a real phone
+// viewport, because the brackets now bound the scan (camera.js's
+// captureReticleFrame). Pointing a frame-filling photo at it would hand the
+// scanner a slice of itself — tiles sheared in half, twins the Review screen
+// can't clear — which is not what a player presents to the camera.
+const PHONE_VIEW = { w: 390, h: 844 };
 export async function newScanPhone(browser) {
-  const context = await browser.newContext();
-  await addCameraMock(context);
+  const context = await browser.newContext({ viewport: { width: PHONE_VIEW.w, height: PHONE_VIEW.h } });
+  await addCameraMock(context, { inReticle: { view: PHONE_VIEW, reticle: RETICLE } });
   const page = await context.newPage();
   await gotoHome(page);
   return { context, page };
