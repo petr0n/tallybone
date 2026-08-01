@@ -18,7 +18,7 @@ import { renderReview } from './screens/review.js';
 import { renderSubmitted } from './screens/submitted.js';
 import { renderDenied, renderEmpty, renderUnavailable, renderCameraBlocked, renderScannerStuck } from './screens/fallback.js';
 import { renderHome, renderRules, renderCreate, renderJoin, renderLobby } from './screens/game-setup.js';
-import { renderRound, renderSubmit, renderStandings, renderManager, renderOver, renderPickDouble } from './screens/game-play.js';
+import { renderRound, renderSubmit, renderStandings, renderManager, renderOver, renderPickDouble, renderRoundDetail } from './screens/game-play.js';
 import { mintCode, suggestedNextDouble, viewGame, joinUrl, joinCodeFromUrl } from './game-state.js';
 import { brandLockup } from './brand.js';
 import { html } from './dom.js';
@@ -281,9 +281,15 @@ function showStandings() {
     onRules: () => navGo(showRules),
     onManager: () => navGo(showManager),
     onStartNext: () => navGo(showPickDouble),
-    onDetail: () => navGo(makeShowGameSubmit(lastScan ? lastScan.tiles : null)),
+    onDetail: () => navGo(showRoundDetail),
   }));
   play(before, rowsById());
+}
+// Live: it reads this round's turn-ins straight off the snapshot, so it keeps
+// up as the remaining players turn in.
+function showRoundDetail() {
+  liveRepaint = showRoundDetail;
+  mount(renderRoundDetail({ game: view(), onBack: navBack, onRules: () => navGo(showRules) }));
 }
 function showManager() {
   liveRepaint = showManager;

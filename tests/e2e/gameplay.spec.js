@@ -139,3 +139,35 @@ test('the creator runs the table even if a guest joins first', async ({ browser 
   await rosa.context.close();
   await dee.context.close();
 });
+
+// "Round N detail · See what everyone turned in" used to open the player's OWN
+// turn-in screen — seeded with their last scan, or with six hardcoded fake tiles
+// if they had not scanned — carrying a live Turn in button that would overwrite
+// their real score. It showed nobody else's number. Reported at a real table as
+// "I can't see the scores between rounds" (2026-07-31).
+test('round detail shows what everyone turned in, and cannot resubmit', async ({ browser }) => {
+  const rosa = await newPhone(browser);
+  const dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+
+  await rosa.page.getByRole('button', { name: 'I won this round' }).click();
+  await expect(rosa.page.getByText('STANDINGS')).toBeVisible();
+
+  await rosa.page.getByText('See what everyone turned in').click();
+  await expect(rosa.page.getByText(/ROUND 1 DETAIL/)).toBeVisible();
+
+  // Both players are listed: the one who went out, and the one still counting.
+  await expect(rosa.page.getByText('Rosa (you)')).toBeVisible();
+  await expect(rosa.page.getByText('WENT OUT').first()).toBeVisible();
+  await expect(rosa.page.getByText('Dee')).toBeVisible();
+  await expect(rosa.page.getByText('STILL COUNTING…')).toBeVisible();
+
+  // The screen must not be able to change anyone's score.
+  await expect(rosa.page.getByRole('button', { name: /Turn in/ })).toHaveCount(0);
+  await expect(rosa.page.getByText('bones scanned and confirmed')).toHaveCount(0);
+
+  await rosa.context.close();
+  await dee.context.close();
+});

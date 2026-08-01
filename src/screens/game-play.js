@@ -156,6 +156,43 @@ function roundWinOverlay(game, rows) {
   return layer;
 }
 
+
+// 12b · Round detail — what everyone turned in THIS round.
+//
+// The Standings card promising this used to open the player's own "turn in your
+// score" screen, seeded with their last scan or, with no scan, with SEED_TILES —
+// six hardcoded fakes — and a live Turn in button that would overwrite their
+// real score. It showed nobody else's number and risked destroying your own.
+//
+// Only the CURRENT round can be shown: `scores[id].last` is overwritten when the
+// next round opens (see the score-history entry in docs/todo.md).
+export function renderRoundDetail({ game, onBack, onRules } = {}) {
+  const root = html('<div class="screen screen--light"></div>');
+  root.appendChild(lightHeader(`TABLE ${game.code}`, `ROUND ${game.roundNum} DETAIL`, onBack, onRules));
+
+  const body = html('<div style="flex:1;overflow:auto;padding:16px 20px 20px;display:flex;flex-direction:column;gap:11px;"></div>');
+  const rows = scoredPlayers(game);
+  const out = rows.filter((p) => p.total !== null && p.last === 0);
+  body.appendChild(html(
+    '<div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;color:var(--secondary-light-1);">' +
+    `WHAT EACH PLAYER TURNED IN${out.length ? ` · ${out.map((p) => p.name.toUpperCase()).join(', ')} WENT OUT` : ''}</div>`));
+
+  rows.forEach((p) => {
+    const pending = p.total === null;
+    const row = html(`<div style="display:flex;align-items:center;gap:12px;background:${pending ? 'transparent' : 'var(--bone)'};border:${pending ? '3px dashed var(--placeholder-border)' : 'var(--ol-base) solid var(--ink)'};border-radius:14px;${pending ? '' : 'box-shadow:var(--shadow-raised);'}padding:12px 14px;flex:none;"></div>`);
+    row.appendChild(html(`<div style="width:40px;height:40px;flex:none;border-radius:50%;background:${p.token};border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:17px;">${initials(p.name)}</div>`));
+    row.appendChild(html(
+      `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">` +
+      `<div style="font-weight:700;font-size:16px;">${p.you ? p.name + ' (you)' : p.name}</div>` +
+      `<div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;color:var(--secondary-light-1);">${pending ? 'STILL COUNTING…' : (p.last === 0 ? 'WENT OUT' : `RUNNING TOTAL ${p.final}`)}</div></div>`));
+    row.appendChild(html(`<div style="font-family:var(--font-display);font-size:30px;line-height:1;color:${pending ? 'var(--disabled-text)' : 'var(--ink)'};">${pending ? '—' : p.last}</div>`));
+    body.appendChild(row);
+  });
+
+  root.appendChild(body);
+  return root;
+}
+
 export function renderStandings({ game, canManage, onBack, onManager, onStartNext, onDetail, onRules } = {}) {
   const rows = ranked(game);
   const winOverlay = roundWinOverlay(game, rows);
