@@ -103,6 +103,59 @@ which one broke:
 
 ---
 
+## Confetti and a bit of fun for the winner
+
+**Status:** requested 2026-07-31, not built.
+
+### Where it goes, and which screen is actually meant
+
+There are two "winner" moments and they deserve different treatment:
+
+- **Standings** (`renderStandings`, `src/screens/game-play.js:128`) — seen after
+  EVERY round, several times a night. The person who went out is the round
+  winner. This is a frequent surface; the motion audit deliberately left frequent
+  surfaces still, so anything here must be small and must not delay the screen.
+- **Game Over** (`renderOver`, line 228) — once per game, and already the one
+  generous beat in the app: the winner avatar bobs (`tb-bob`) and the card enters
+  on `--dur-reveal`. **This is where confetti belongs.**
+
+Confirm which was meant before building. "Round winners screen" reads like
+Standings, but a full confetti burst after every round is the kind of thing that
+delights twice and irritates for the rest of the evening.
+
+### Constraints this app already imposes
+
+- **Reduced motion must kill it.** `motion.js`'s `reducedMotion()` gates the JS
+  entrances and `screens.css` has a `prefers-reduced-motion` block that already
+  disables `tb-bob` and `tb-pulse` by attribute match. Confetti is exactly the
+  effect someone with vestibular sensitivity turns that setting on for — no
+  particles at all, not merely fewer.
+- **Once per identity, not per render.** Every live screen re-renders in full on
+  each server snapshot (`main.js` mount -> replaceChildren), so anything keyed to
+  insertion replays whenever anyone turns in. Use `enterIfNew(el, group, id)`
+  from `motion.js`; Game Over already keys on the winner's id.
+- **Transform and opacity only.** The rest of the app's motion stays off the
+  layout/paint path, and a few hundred particles animating anything else on a
+  mid-range phone is where a burst turns into a stutter.
+- **No new dependency.** A canvas-confetti library is ~10KB but this app vendors
+  rather than adds (see the QR encoder in `src/vendor/`), and a burst of absolutely
+  positioned divs on a CSS keyframe is genuinely enough.
+
+### Watch out
+
+- **The Over screen is ink-dark**; particle colours need to read against it.
+  `--sky`, `--flare`, `--check` and `--bone` are the palette, and pip colours are
+  explicitly never a signal elsewhere in this app, so do not invent new hues.
+- A canvas overlay must not sit above the footer buttons — "Run it back" and
+  "Home" have to stay tappable while it plays. Use `pointer-events: none`.
+- Clean up when the screen unmounts: an infinite or long-running particle loop
+  left running after navigation is the same class of bug as the resize listener
+  the capture screen had to start removing.
+- If it lands on Standings after all, it must not push the standings list down or
+  reflow it — overlay only.
+
+---
+
 ## Let a player see their score history in a game
 
 **Status:** requested 2026-07-31, not built. **Do this together with the doubles
