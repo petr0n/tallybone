@@ -16,7 +16,7 @@ import { renderCapture, layoutScanBox } from './screens/capture.js';
 import { renderScanning } from './screens/scanning.js';
 import { renderReview } from './screens/review.js';
 import { renderSubmitted } from './screens/submitted.js';
-import { renderDenied, renderEmpty, renderUnavailable, renderCameraBlocked } from './screens/fallback.js';
+import { renderDenied, renderEmpty, renderUnavailable, renderCameraBlocked, renderScannerStuck } from './screens/fallback.js';
 import { renderHome, renderRules, renderCreate, renderJoin, renderLobby } from './screens/game-setup.js';
 import { renderRound, renderSubmit, renderStandings, renderManager, renderOver, renderPickDouble } from './screens/game-play.js';
 import { mintCode, suggestedNextDouble, viewGame, joinUrl, joinCodeFromUrl } from './game-state.js';
@@ -172,10 +172,6 @@ function bootNode(msg) {
   node.appendChild(html(`<div class="tb-boot__title" style="font-size:18px;margin-top:4px;">${msg}</div>`));
   return node;
 }
-function errorBoot() {
-  return html('<div class="tb-boot"><div class="tb-boot__title">SCANNER FAILED TO LOAD</div>' +
-    `<div class="tb-boot__sub">${(scannerError && scannerError.message) || 'model load error'}</div></div>`);
-}
 
 // ---------- Phase-2 game screens ----------
 function showHome() {
@@ -305,15 +301,53 @@ function startScannerInit() {
   if (!scannerInitPromise) {
     scannerInitPromise = initScanner()
       .then(() => { scannerReady = true; })
-      .catch((e) => { scannerError = e; throw e; });
+      // Clear the promise so a retry is a REAL second attempt. Keeping the
+      // rejected one made every retry replay the same failure instantly.
+      .catch((e) => { scannerError = e; scannerInitPromise = null; throw e; });
   }
   return scannerInitPromise;
 }
+
+// How long to sit on WARMING UP before offering a way out. The models are
+// ~6.3MB and a first load on a phone is genuinely slow, so this is generous —
+// but it is not infinite, which is what it used to be.
+const SCANNER_BOOT_TIMEOUT_MS = 20000;
+
+function showScannerStuck(cb, detail) {
+  mount(renderScannerStuck({
+    detail,
+    onManual: showManual,
+    onBack: navBack,
+    onRetry: () => { scannerError = null; scannerInitPromise = null; ensureScannerThen(cb); },
+  }));
+}
+
 function ensureScannerThen(cb) {
   if (scannerReady) { cb(); return; }
-  if (scannerError) { mount(errorBoot()); return; }
   mount(bootNode('WARMING UP…'));
-  startScannerInit().then(cb).catch(() => mount(errorBoot()));
+  let done = false;
+  // A hang is the failure that stranded a player mid-game: init never settled,
+  // so the screen never changed and there was no route even to manual entry.
+  const timer = setTimeout(() => {
+    if (done) return;
+    done = true;
+    showScannerStuck(cb, 'Error SCN-01 · still loading after 20s');
+  }, SCANNER_BOOT_TIMEOUT_MS);
+  startScannerInit().then(
+    () => {
+      clearTimeout(timer);
+      // If we already gave up and offered the escape, do NOT yank the player
+      // off it — they may be typing a hand in by now.
+      if (done) return;
+      done = true;
+      cb();
+    },
+    (e) => {
+      clearTimeout(timer);
+      if (done) return;
+      done = true;
+      showScannerStuck(cb, `Error SCN-02 · ${(e && e.message) || 'scanner failed to load'}`);
+    });
 }
 function showCapture() {
   const cap = renderCapture({

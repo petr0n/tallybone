@@ -123,3 +123,30 @@ export function renderUnavailable({ onRetry, onManual } = {}) {
   root.appendChild(foot);
   return root;
 }
+
+// 07 · the scanner never finished loading.
+//
+// The boot screen used to be a dead end: a logo, the words WARMING UP, and no
+// timeout, no retry and no way out — so a phone that stalls loading the ~6.3MB
+// of models (or hits iOS's WASM memory ceiling) strands the player mid-game with
+// no route even to manual entry, which is only reachable from the other fallback
+// screens. Reported from a real table, 2026-07-31.
+export function renderScannerStuck({ onRetry, onManual, onBack, detail } = {}) {
+  const root = html('<div class="screen screen--light msg"></div>');
+  root.appendChild(lightHeader('SCAN YOUR TILES', onBack));
+  root.appendChild(html(
+    '<div class="msg__mid">' +
+    '<div style="width:112px;height:112px;border-radius:24px;border:4px solid var(--ink);background:var(--bone);box-shadow:var(--shadow-lifted-6);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:52px;color:var(--check);">?</div>' +
+    '<div style="display:flex;flex-direction:column;gap:12px;">' +
+    '<div class="msg__title">SCANNER WON\'T LOAD</div>' +
+    '<div class="msg__body" style="color:var(--secondary-light-2);">It downloads about 6MB the first time, and this phone hasn\'t managed it. A patchy signal or a low-memory phone will do it. You can keep playing — enter your tiles by hand and carry on.</div></div>' +
+    `<div class="msg__errbanner" style="box-shadow:var(--shadow-raised);"><div class="msg__errbanner-badge">!</div>` +
+    `<div class="msg__errbanner-text">${detail || 'Error SCN-01 · scanner did not finish loading'}</div></div></div>`));
+  const foot = html('<div class="msg__foot"></div>');
+  // Manual entry FIRST: the player is mid-round with people waiting, and a
+  // retry that already failed is the less useful of the two.
+  foot.appendChild(button({ label: 'Enter tiles by hand', variant: 'primary', onClick: onManual }));
+  foot.appendChild(button({ label: 'Try loading again', variant: 'secondary', onClick: onRetry }));
+  root.appendChild(foot);
+  return root;
+}

@@ -33,3 +33,49 @@ test('iOS non-Safari: blocked live camera falls back to native photo -> scan', a
 
   await ctx.close();
 });
+
+// A phone that cannot load the scanner must still be able to play.
+//
+// The boot screen was a dead end: no timeout, no retry, and no route to manual
+// entry — which is only reachable from the other fallback screens, all of which
+// sit BEHIND scanner init. A player at a real table was stranded on WARMING UP
+// mid-game with nothing to tap (2026-07-31).
+test('a scanner that never loads still lets you enter tiles by hand', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await ctx.newPage();
+  // The models are what a bad signal or a low-memory phone fails to get.
+  await page.route('**/models/*.onnx', (route) => route.abort());
+  await page.goto('/');
+  await page.getByText('Just count my tiles').click();
+
+  await expect(page.getByText("SCANNER WON'T LOAD")).toBeVisible({ timeout: 60000 });
+  await page.getByRole('button', { name: 'Enter tiles by hand' }).click();
+
+  // Manual entry is the review screen seeded with a blank tile.
+  await expect(page.locator('.rev__total')).toBeVisible();
+  await page.locator('.rev__card .plus').first().click();
+  await expect(page.locator('.rev__footer .tb-btn--primary')).toBeVisible();
+
+  await ctx.close();
+});
+
+// The reported failure was a HANG, not an error: init never settled, so the
+// screen never changed. That is a different code path from the abort above and
+// the one that actually stranded someone, so it gets its own test.
+test('a scanner that hangs forever times out into the escape hatch', async ({ browser }) => {
+  test.setTimeout(180_000);
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await ctx.newPage();
+  await page.route('**/models/*.onnx', () => { /* never settle: the request hangs */ });
+  await page.goto('/');
+  await page.getByText('Just count my tiles').click();
+  await expect(page.getByText('WARMING UP')).toBeVisible();
+
+  await expect(page.getByText("SCANNER WON'T LOAD"), 'must not hang forever').toBeVisible({ timeout: 60000 });
+  await expect(page.getByText(/still loading after/)).toBeVisible();
+  await page.getByRole('button', { name: 'Enter tiles by hand' }).click();
+  await expect(page.locator('.rev__total')).toBeVisible();
+
+  await ctx.close();
+});
