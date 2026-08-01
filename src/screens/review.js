@@ -32,12 +32,23 @@ function tileCropUrl(sourceImageData, corners) {
   ctx.translate(out.width / 2, out.height / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.drawImage(src, -(RECT_W * scale) / 2, -(RECT_H * scale) / 2, RECT_W * scale, RECT_H * scale);
-  return out.toDataURL('image/jpeg', 0.9);
+  const url = out.toDataURL('image/jpeg', 0.9);
+  // Both canvases are dead the moment the data URL exists — a 15-tile hand makes
+  // thirty of them. WebKit only frees the backing store on a resize to 0, and
+  // holding them is what pushes a phone into iOS's per-tab canvas budget.
+  src.width = 0; src.height = 0;
+  out.width = 0; out.height = 0;
+  return url;
 }
 
-// tiles: [{ a, b, conf, bbox?, corners? }]. photoBitmap + sourceImageData +
-// photoW/H optional (absent for manual entry). onSubmit(total, tiles), onBack().
-export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, photoH, onSubmit, onBack, onRules } = {}) {
+// tiles: [{ a, b, conf, bbox?, corners? }]. sourceImageData + photoW/H optional
+// (absent for manual entry). onSubmit(total, tiles), onBack().
+//
+// The photo is drawn straight from sourceImageData. There used to be an
+// ImageBitmap copy of it as well — a second 12.6MB buffer per scan, in native
+// memory the JS collector has little reason to reclaim, and never close()d. One
+// buffer is enough.
+export function renderReview({ tiles, sourceImageData, photoW, photoH, onSubmit, onBack, onRules } = {}) {
   const items = (tiles || []).map((t, i) => ({
     id: i, a: clamp(t.a | 0), b: clamp(t.b | 0), conf: t.conf === 'check' ? 'check' : 'ok',
     dismissed: false, bbox: t.bbox || null, cropUrl: tileCropUrl(sourceImageData, t.corners),
@@ -68,7 +79,7 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
   // The stage is the photo's covering rect (see .rev__stage). Canvas AND
   // outlines go inside it so both share one coordinate space.
   const stage = html('<div class="rev__stage"></div>');
-  if (photoBitmap) {
+  if (sourceImageData) {
     // The strip takes the capture's own shape, so the scan area fills it instead
     // of sitting letterboxed behind grey bars — this photo IS what was scanned,
     // and it is the thing the player is here to check. Capped so a tall frame
@@ -76,7 +87,7 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
     photoWrap.style.aspectRatio = `${photoW} / ${photoH}`;
     const canvas = document.createElement('canvas');
     canvas.width = photoW; canvas.height = photoH;
-    canvas.getContext('2d').drawImage(photoBitmap, 0, 0);
+    canvas.getContext('2d').putImageData(sourceImageData, 0, 0);
     stage.appendChild(canvas);
     photoWrap.appendChild(stage);
     // Fit the WHOLE photo inside the strip (contain) and let the stage BE that
@@ -215,7 +226,7 @@ export function renderReview({ tiles, photoBitmap, sourceImageData, photoW, phot
 
     // photo outlines (redraw) + count pill
     photoWrap.querySelectorAll('.rev__box').forEach((b) => b.remove());
-    if (photoBitmap) {
+    if (sourceImageData) {
       items.filter((t) => !t.dismissed && t.bbox).forEach((t, i) => {
         const box = el('div', d.isDup(t) ? 'rev__box rev__box--dup' : (t.conf === 'check' ? 'rev__box rev__box--check' : 'rev__box'));
         box.style.left = `${(t.bbox.x / photoW) * 100}%`;

@@ -43,7 +43,7 @@ let currentVideo = null;
 let captureRelayout = null;   // window resize handler owned by the capture screen
 let lastCaptureGeom = null;   // viewfinder geometry of the last capture (?tail=1 telemetry)
 let scanContext = 'solo';   // 'solo' | 'ingame'
-let lastScan = null;        // { tiles, sourceImageData, photoBitmap, photoW, photoH }
+let lastScan = null;        // { tiles, sourceImageData, photoW, photoH }
 let scanRunId = 0;          // bumped on nav/back to invalidate an in-flight scan
 
 // ---------- live multiplayer state ----------
@@ -95,10 +95,31 @@ let scannerReady = false;
 let scannerError = null;
 let scannerInitPromise = null;
 
+// Canvases handed to the scanner during one scan. A 15-tile hand asks for the
+// capture, a letterbox for detection, and one per tile for pip counting — and
+// WebKit only reliably frees a canvas's backing store when it is resized to 0,
+// which is why an iPhone 16 (8GB of RAM) hit iOS's per-tab budget after a few
+// scans. They are released together once the scan is done; nothing downstream
+// keeps a canvas, only the ImageData read out of it.
+let scratchCanvases = [];
 function canvasFactory(w, h) {
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
+  scratchCanvases.push(canvas);
   return { canvas, ctx: canvas.getContext('2d', { willReadFrequently: true }) };
+}
+function releaseScratchCanvases() {
+  for (const c of scratchCanvases) { c.width = 0; c.height = 0; }
+  scratchCanvases = [];
+}
+
+// The last scan holds a full-resolution ImageData (~12.6MB at 1814x1814) so
+// Review can rebuild its per-tile crops when navigated back to. Drop it the
+// moment the scan flow is left, rather than carrying it for the rest of the
+// session.
+function clearLastScan() {
+  lastScan = null;
+  releaseScratchCanvases();
 }
 function mount(node) {
   if (stream) { stopCamera(stream); stream = null; }
@@ -175,6 +196,8 @@ function bootNode(msg) {
 
 // ---------- Phase-2 game screens ----------
 function showHome() {
+  // Landing on Home means the scan flow is over; let ~13MB of capture go.
+  clearLastScan();
   mount(renderHome({
     onStartGame: () => { createDraft = { code: mintCode(), managerName: net.rememberedName() || '', copied: false }; navGo(showCreate); },
     onJoin: () => { joinError = ''; joinPrefill = ''; navGo(showJoin); },
@@ -419,14 +442,14 @@ function makeShowScanning(imageData) {
       }
       if (myRun !== scanRunId) return; // navigated away mid-scan
       if (!results || results.length === 0) { navSwap(showEmpty); return; }
-      const bitmap = await createImageBitmap(imageData);
-      if (myRun !== scanRunId) return;
       const tiles = results.map((r) => ({
         a: r.predicted.first, b: r.predicted.second,
         conf: (r.predicted.confidence ?? 1) >= CONFIDENCE_OK ? 'ok' : 'check',
         bbox: r.bbox, corners: r.corners,
       }));
-      lastScan = { tiles, sourceImageData: imageData, photoBitmap: bitmap, photoW: imageData.width, photoH: imageData.height };
+      lastScan = { tiles, sourceImageData: imageData, photoW: imageData.width, photoH: imageData.height };
+      // The scanner is done with its working canvases; only ImageData survives.
+      releaseScratchCanvases();
       // ?tail=1 only: stream the read to `wrangler tail` so a real-device scan
       // is observable. What it read here, versus what gets submitted after the
       // player fixes it, is the accuracy measurement.
@@ -443,7 +466,6 @@ function makeShowReview(scan) {
   return function showReview() {
     mount(renderReview({
       tiles: scan.tiles,
-      photoBitmap: scan.photoBitmap,
       sourceImageData: scan.sourceImageData,
       photoW: scan.photoW, photoH: scan.photoH,
       onBack: navBack,
@@ -465,7 +487,7 @@ function makeShowSubmitted(total) {
 }
 // Manual entry: review seeded with one blank tile (domino fallback, no crop).
 function showManual() {
-  navGo(makeShowReview({ tiles: [{ a: 0, b: 0, conf: 'ok' }], sourceImageData: null, photoBitmap: null, photoW: 0, photoH: 0 }));
+  navGo(makeShowReview({ tiles: [{ a: 0, b: 0, conf: 'ok' }], sourceImageData: null, photoW: 0, photoH: 0 }));
 }
 function showDenied() { mount(renderDenied({ onRetry: () => navSwap(showCapture), onOpenSettings: () => navSwap(showCapture) })); }
 function showUnavailable() { mount(renderUnavailable({ onRetry: () => navSwap(showCapture), onManual: showManual })); }
