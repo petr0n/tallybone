@@ -21,7 +21,24 @@ because the owner ranked it; move it if that is wrong.
 needs a borrowed device, so gather everything in one sitting rather than
 discovering a missing detail later.
 
-### What the report actually says
+### A second iPhone symptom, same night — and what it ruled out
+
+Later the same session, an iPhone at the table got stuck on the **WARMING UP**
+scanner-boot screen and could not scan at all, mid-game. Diagnostic value is in
+what cleared it: **a page reload did NOT fix it; force-quitting the browser
+did.** A reload reuses the same browser process, a force-quit does not — which
+points at memory pressure in the WASM runtime rather than the network, the CDN,
+or the model files (all three were verified serving 200 with correct sizes from
+production at the time). Same family as the iPad `RangeError: out of memory`
+recorded in the camera entry below.
+
+The dead-end *symptom* is fixed (`f41a862`: the boot screen now times out into
+manual entry and a real retry). **The underlying memory failure is not** — that
+fix makes the failure survivable, it does not prevent it. If close-up photos and
+the boot hang turn out to share a cause, it is memory, and the lever is capture
+size, which is exactly the change the camera entry warns not to make blind.
+
+### What the close-up report actually says
 
 "iPhone has problems with up close photos." That is the whole of it. Before
 theorising, get:
