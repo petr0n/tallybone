@@ -48,7 +48,14 @@ export function applyIntent(game, intent, actorId) {
         g.players.push(p);
         g.scores[p.id] = { total: 0, last: 0, turnedIn: false };
       }
-      if (!g.managerId) g.managerId = p.id;
+      // Who runs the table. First-join-wins is the fallback, but it gave the
+      // game away in practice: the Create screen shows the code and a scannable
+      // QR BEFORE the creator has taken their seat (they still have to type a
+      // name and tap "Open the table"), so a guest scanning that QR arrives
+      // first. The creator's own join therefore carries `creator` and claims it.
+      // Lobby only — nobody takes the table out from under a game in progress.
+      if (intent.creator && g.phase === 'lobby') g.managerId = p.id;
+      else if (!g.managerId) g.managerId = p.id;
       return { game: g };
     }
     case 'startRound': {

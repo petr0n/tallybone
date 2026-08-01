@@ -2,8 +2,37 @@ import { describe, it, expect } from 'vitest';
 import { emptyGame, applyIntent } from './reducer.js';
 
 const join = (g, id, name) => applyIntent(g, { t: 'join', id, name }, id).game;
+const open = (g, id, name) => applyIntent(g, { t: 'join', id, name, creator: true }, id).game;
 
 describe('reducer', () => {
+  // The Create screen shows the join code and a scannable QR BEFORE the creator
+  // has taken their own seat — they still have to type a name and tap "Open the
+  // table". A guest scanning that QR therefore lands first, and first-join-wins
+  // handed them the game. Reported from a real table.
+  it('the creator gets the game even when a guest joins first', () => {
+    let g = emptyGame('KX7Q2');
+    g = join(g, 'guest', 'Dee');          // scanned the QR while Rosa was typing
+    expect(g.managerId).toBe('guest');
+    g = open(g, 'rosa', 'Rosa');          // Rosa taps "Open the table"
+    expect(g.managerId).toBe('rosa');
+    expect(g.players.map((p) => p.name)).toEqual(['Dee', 'Rosa']);
+    expect(g.scores.guest).toEqual({ total: 0, last: 0, turnedIn: false });
+  });
+
+  it('a creator claim cannot take the game once it has started', () => {
+    let g = emptyGame('KX7Q2');
+    g = join(g, 'a', 'Rosa');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = open(g, 'late', 'Someone');       // forged or stale claim, mid-game
+    expect(g.managerId).toBe('a');
+  });
+
+  it('a plain join never takes the game from the creator', () => {
+    let g = emptyGame('KX7Q2');
+    g = open(g, 'rosa', 'Rosa');
+    g = join(g, 'b', 'Dee');
+    expect(g.managerId).toBe('rosa');
+  });
   it('first joiner becomes manager, second is a player', () => {
     let g = emptyGame('KX7Q2');
     g = join(g, 'a', 'Rosa');

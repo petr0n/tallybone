@@ -120,7 +120,7 @@ are marked *(mgr)*.
 | Intent | Payload | Effect |
 |---|---|---|
 | `hello` | `{ playerId?, token? }` | Reconnect to an existing seat, or announce a fresh connection. DO replies `you` + `state`. |
-| `join` | `{ name }` | Take a lobby seat. DO mints `playerId` + `token`, replies `you`, broadcasts `state`. First joiner of a fresh code becomes `managerId`. |
+| `join` | `{ name, creator? }` | Take a lobby seat. DO mints `playerId` + `token`, replies `you`, broadcasts `state`. `creator: true` (the phone that minted the code, tapping "Open the table") claims `managerId` **while the game is in the lobby**; otherwise the first joiner of a fresh code becomes `managerId`. The flag exists because the Create screen shows the code and QR *before* the creator has taken a seat, so a guest who scans it arrives first and would otherwise own the game — observed at a real table, 2026-07-31. Client-asserted, which suits the casual/friends tier where the 5-char code is already the only gate. |
 | `startRound` *(mgr)* | — | `lobby → round`, round 1 on double-12. |
 | `pickDouble` *(mgr)* | `{ d }` | Set `currentDouble = d`, `roundNum += 1`, start the next round. |
 | `turnIn` | `{ total, tiles? }` | Record the calling player's round score (`tiles` optional, for future audit). |

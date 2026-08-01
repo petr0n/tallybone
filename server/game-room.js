@@ -81,7 +81,13 @@ export class GameRoom extends DurableObject {
       // scores are kept (reducer only initialises scores for a brand-new id).
       const playerId = reclaim ? reclaim.id : 'p_' + crypto.randomUUID().slice(0, 8);
       const token = crypto.randomUUID();
-      const { game, error } = applyIntent(this.game, { t: 'join', id: playerId, name: msg.name }, playerId);
+      // `creator` rides along: this phone minted the code and is opening the
+      // table, which claims the game even if a guest scanned the QR first. It is
+      // client-asserted, which suits the locked casual/friends trust tier — the
+      // 5-char code is already the only gate — and the reducer confines it to
+      // the lobby so it cannot take a game in progress.
+      const { game, error } = applyIntent(
+        this.game, { t: 'join', id: playerId, name: msg.name, creator: Boolean(msg.creator) }, playerId);
       if (error) return send(ws, { t: 'error', code: error });
       this.game = game;
       this.tokens[token] = playerId;

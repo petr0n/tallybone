@@ -118,12 +118,26 @@ export function send(intent) {
   else outbox.push(intent);
 }
 
-export function join(name) { rememberName(name); send({ t: 'join', name }); }
+// `creator: true` is the person who minted this code tapping "Open the table".
+// The server hands them the game even if a guest scanned the QR first — see
+// the join case in server/reducer.js.
+export function join(name, { creator = false } = {}) {
+  rememberName(name);
+  send(creator ? { t: 'join', name, creator: true } : { t: 'join', name });
+}
 export function onState(cb) { stateSubs.add(cb); if (lastGame) cb(lastGame); return () => stateSubs.delete(cb); }
 export function onError(cb) { errorSubs.add(cb); return () => errorSubs.delete(cb); }
 export function getState() { return lastGame; }
 export function whoami() { return { ...identity, code }; }
-export function isManager() { return identity.role === 'manager'; }
+// The LIVE snapshot decides, not the `role` latched into the `you` message at
+// join time. managerId can move under a player — the creator claiming a table a
+// guest reached first — and a latched role left the old manager holding controls
+// the server would reject as `not_manager`. `role` remains the fallback for the
+// moment before the first snapshot lands.
+export function isManager() {
+  if (lastGame && identity.playerId) return lastGame.managerId === identity.playerId;
+  return identity.role === 'manager';
+}
 
 export function disconnect() {
   closedByUs = true;

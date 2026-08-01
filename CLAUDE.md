@@ -253,7 +253,11 @@ production. **Run/deploy details, free-tier limits, and the routing gotchas live
 [`server/README.md`](server/README.md) — read it before deploying.**
 
 **Protocol (implemented — reference, don't re-derive).**
-Phone→DO: `hello{playerId?,token?}`, `join{name}` (first joiner = manager),
+Phone→DO: `hello{playerId?,token?}`, `join{name,creator?}` (`creator` = the phone
+that minted the code opening the table; it claims the game **in the lobby only**,
+because the Create screen shows the QR before the creator has taken a seat and a
+guest who scans it would otherwise become manager. Without the flag, first joiner
+wins), 
 `startRound`(mgr), `pickDouble{d}`(mgr), `turnIn{total}`, `removePlayer{id}`(mgr),
 `reopenRound`(mgr), `callGame`(mgr), `runItBack`(mgr).
 DO→phone: `state{game}`, `you{playerId,token,role}`, `error{code}`.

@@ -100,3 +100,42 @@ test('joining an unused code opens a fresh lobby (accepted casual behavior)', as
 
   await a.context.close();
 });
+
+// The Create screen shows the join code and a scannable QR before the creator
+// has taken a seat — they still have to type a name and tap "Open the table".
+// A guest who scans during that window used to become manager, because the
+// server gave the game to the first join it saw. Reported from a real table.
+//
+// This has to run through the DO, not the reducer: the fix depends on the
+// `creator` flag surviving net.js -> the socket -> game-room.js's rebuilt
+// intent, and the reducer's own test cannot see any of those seams.
+test('the creator runs the table even if a guest joins first', async ({ browser }) => {
+  const rosa = await newPhone(browser);
+  const dee = await newPhone(browser);
+
+  // Rosa mints a code and is still on Create, seat not taken.
+  await rosa.page.getByRole('button', { name: 'Start a game' }).click();
+  await expect(rosa.page.getByText('YOUR TABLE IS OPEN')).toBeVisible();
+  // The code is drawn as one tile per character with no class of its own; the
+  // QR's accessible label is the one place it appears as a whole string.
+  const label = await rosa.page.locator('svg[aria-label^="Scan to join game"]').getAttribute('aria-label');
+  const code = (label.match(/[A-Z0-9]{5}/) || [])[0];
+  expect(code).toMatch(/^[A-Z0-9]{5}$/);
+
+  // Dee scans the QR and gets all the way in first.
+  await joinGame(dee.page, code, 'Dee');
+
+  // Rosa now opens the table.
+  await rosa.page.getByPlaceholder('Rosa').fill('Rosa');
+  await rosa.page.getByRole('button', { name: 'Open the table' }).click();
+  await expect(rosa.page.getByText(/LOBBY|WAITING|PLAYERS/i).first()).toBeVisible();
+
+  // Manager controls are the observable proof of who owns the game.
+  await expect(rosa.page.getByRole('button', { name: /Start round/ }),
+    'the creator runs the table').toBeVisible();
+  await expect(dee.page.getByRole('button', { name: /Start round/ }),
+    'the guest who arrived first does not').toHaveCount(0);
+
+  await rosa.context.close();
+  await dee.context.close();
+});

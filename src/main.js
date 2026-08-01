@@ -156,10 +156,13 @@ function leaveGame() {
 }
 // Join a game: open the socket + take a seat. Routing to the lobby happens once
 // the server confirms our seat (routeNextSnapshot in the onState handler).
-function enterGame(code, name) {
+function enterGame(code, name, { creator = false } = {}) {
   safeDel('tb.away');
   net.connect(code);
-  net.join(name);
+  // `creator` = this phone minted the code and is opening the table. The Create
+  // screen shows the QR before this point, so a guest can already have joined;
+  // the flag is what keeps the game with the person who started it.
+  net.join(name, { creator });
   routeNextSnapshot = true;
 }
 
@@ -195,7 +198,7 @@ function showCreate() {
     // screen in 58px tiles for reading aloud.
     onCopy: () => { copyText(joinUrl(createDraft.code)); createDraft.copied = true; navSwap(showCreate); },
     onRules: () => navGo(showRules),
-    onOpen: () => enterGame(createDraft.code, (createDraft.managerName || '').trim() || 'Manager'),
+    onOpen: () => enterGame(createDraft.code, (createDraft.managerName || '').trim() || 'Manager', { creator: true }),
   }));
 }
 function showJoin() {
