@@ -103,56 +103,65 @@ which one broke:
 
 ---
 
-## Confetti and a bit of fun for the winner
+## Confetti for the player who just won the round
 
-**Status:** requested 2026-07-31, not built.
+**Status:** requested 2026-07-31, scope clarified the same day, not built.
+**Difficulty: low** — client-only, no server or protocol change.
 
-### Where it goes, and which screen is actually meant
+### The design (clarified by the owner)
 
-There are two "winner" moments and they deserve different treatment:
+The player who **went out** sees the celebration **on their own screen**, on
+Standings. Nobody else's screen changes. That is deliberately not a broadcast:
+one person sees it, a few times a night, on the moment that is about them.
+(The earlier framing here worried about confetti firing for everyone after every
+round — a burst that delights twice and irritates for the rest of the evening.
+Per-player scoping removes that objection entirely.)
 
-- **Standings** (`renderStandings`, `src/screens/game-play.js:128`) — seen after
-  EVERY round, several times a night. The person who went out is the round
-  winner. This is a frequent surface; the motion audit deliberately left frequent
-  surfaces still, so anything here must be small and must not delay the screen.
-- **Game Over** (`renderOver`, line 228) — once per game, and already the one
-  generous beat in the app: the winner avatar bobs (`tb-bob`) and the card enters
-  on `--dur-reveal`. **This is where confetti belongs.**
+Game Over already has its own once-a-game beat (the bobbing winner avatar and a
+`--dur-reveal` entrance); this is a separate, smaller moment and should not try
+to compete with it.
 
-Confirm which was meant before building. "Round winners screen" reads like
-Standings, but a full confetti burst after every round is the kind of thing that
-delights twice and irritates for the rest of the evening.
+### Everything needed is already on the screen
 
-### Constraints this app already imposes
+`scoredPlayers()` (`src/game-state.js:79`) gives each row `you`, `last` (THIS
+round's turn-in) and `total` (null until they turn in). So:
 
-- **Reduced motion must kill it.** `motion.js`'s `reducedMotion()` gates the JS
-  entrances and `screens.css` has a `prefers-reduced-motion` block that already
-  disables `tb-bob` and `tb-pulse` by attribute match. Confetti is exactly the
-  effect someone with vestibular sensitivity turns that setting on for — no
-  particles at all, not merely fewer.
-- **Once per identity, not per render.** Every live screen re-renders in full on
-  each server snapshot (`main.js` mount -> replaceChildren), so anything keyed to
-  insertion replays whenever anyone turns in. Use `enterIfNew(el, group, id)`
-  from `motion.js`; Game Over already keys on the winner's id.
-- **Transform and opacity only.** The rest of the app's motion stays off the
-  layout/paint path, and a few hundred particles animating anything else on a
-  mid-range phone is where a burst turns into a stutter.
-- **No new dependency.** A canvas-confetti library is ~10KB but this app vendors
-  rather than adds (see the QR encoder in `src/vendor/`), and a burst of absolutely
-  positioned divs on a CSS keyframe is genuinely enough.
+```js
+const iWonThisRound = p.you && p.total !== null && p.last === 0;
+```
+
+The one assumption: turning in 0 means you went out. That holds — the only
+zero-value hand is an empty one, since a lone `0/0` scores 40, not 0.
+
+### The four things to get right
+
+1. **Once per round.** Live screens re-render on every server snapshot, so
+   anything keyed to insertion replays each time another player turns in. Use
+   `enterIfNew(el, 'roundwin', game.roundNum)` from `motion.js`.
+2. **Reduced motion removes it**, not softens it — `reducedMotion()` plus the
+   `prefers-reduced-motion` block in `screens.css`. This is the effect that
+   setting exists for.
+3. **Overlay only.** `position: absolute` + `pointer-events: none`, so it cannot
+   block the footer or reflow the standings list under it.
+4. **CSS keyframes, not a JS loop.** The screen is replaced wholesale on
+   navigation, so a keyframe dies with its element and there is nothing to clean
+   up — unlike a rAF loop, which is the same leak class as the resize listener
+   the capture screen had to start removing.
 
 ### Watch out
 
-- **The Over screen is ink-dark**; particle colours need to read against it.
-  `--sky`, `--flare`, `--check` and `--bone` are the palette, and pip colours are
-  explicitly never a signal elsewhere in this app, so do not invent new hues.
-- A canvas overlay must not sit above the footer buttons — "Run it back" and
-  "Home" have to stay tappable while it plays. Use `pointer-events: none`.
-- Clean up when the screen unmounts: an infinite or long-running particle loop
-  left running after navigation is the same class of bug as the resize listener
-  the capture screen had to start removing.
-- If it lands on Standings after all, it must not push the standings list down or
-  reflow it — overlay only.
+- Standings is ink-dark; particles need the existing palette (`--sky`,
+  `--flare`, `--check`, `--bone`). Do not invent hues — pip colour is never a
+  signal anywhere in this app.
+- Transform and opacity only, and keep the particle count low enough that a
+  mid-range phone does not stutter; the rest of the app's motion stays off the
+  layout/paint path deliberately.
+- The manager can start the next round at any moment, which pulls every phone to
+  the Round screen. A celebration that is cut off mid-flight is fine; one that
+  blocks or delays that transition is not.
+- No new dependency. A canvas-confetti library is ~10KB, but this app vendors
+  rather than adds (see `src/vendor/qrcode.js`), and positioned divs on a
+  keyframe are enough.
 
 ---
 
