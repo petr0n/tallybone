@@ -11,6 +11,58 @@ offline retry queue, cross-device history, hardened auth) live in
 
 ---
 
+## Remember which double started each round
+
+**Status:** requested 2026-07-31, not built.
+
+### What the game knows today
+
+`server/reducer.js` keeps a single `currentDouble` and overwrites it every round:
+`startRound` sets 12, `pickDouble` replaces it with the manager's choice and
+increments `roundNum`. Nothing anywhere records what round 1, 2 or 3 opened on —
+once round 4 starts, rounds 1–3's doubles are gone from the snapshot, from the
+DO's persisted state, and from every phone.
+
+`suggestedNextDouble()` (`src/game-state.js:45`) is pure arithmetic on the
+current value — `currentDouble - 1`, floor 1 — so it does not know what has
+already been played either. If the manager picks off-sequence, or picks the same
+double twice, nothing notices.
+
+### Why this matters
+
+- **The table cannot check itself.** "Didn't we already play tens?" has no answer
+  in the app; the standings show totals per round but not what each round opened
+  on.
+- **The picker can offer a double that's already been used**, which is the
+  mistake most likely to happen late in a game when people are tired.
+- It is the one piece of round context the app drops on the floor — round number,
+  totals, and turn-ins all persist.
+
+### The concrete fix
+
+1. Add `doubles: []` to `emptyGame()` in `server/reducer.js` — an array indexed
+   by round, or `[{ round, double }]` if the display wants it explicit.
+2. Append in the two places a round begins: `startRound` (always 12) and
+   `pickDouble`. Both already mutate `g`, so this is two lines and stays pure.
+3. Old games persisted before this ships have no field: read it as `doubles || []`
+   wherever it is consumed, rather than migrating DO storage.
+4. Surface it on Standings (a per-round column or a "rounds so far" strip) and in
+   `renderPickDouble` (`src/screens/game-play.js:280`), which should mark or
+   disable doubles already used.
+5. `suggestedNextDouble()` should skip used values instead of blind `-1`.
+
+### Watch out
+
+- `runItBack` resets the game for a rematch — it must clear `doubles` too, or
+  round 1 of the new game inherits the old game's history.
+- The reducer is the single writer; the DO persists the whole game object, so no
+  storage-schema work is needed beyond the default-empty read.
+- Tests: `server/reducer.test.js` for accumulation across `startRound` →
+  `pickDouble` → `pickDouble` and for the `runItBack` reset; the existing
+  `pickDouble clamps to 0..12` case is the natural neighbour.
+
+---
+
 ## Make player identity solid: a durable device id instead of name matching
 
 **Status:** deferred 2026-07-29. Name matching is good enough for now (owner's
