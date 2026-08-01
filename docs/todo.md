@@ -11,6 +11,81 @@ offline retry queue, cross-device history, hardened auth) live in
 
 ---
 
+## iPhone: close-up photos read badly
+
+**Status:** reported 2026-07-31 from a real table, not investigated. Placed above
+the feature entries because it is an ACCURACY bug — the app's one goal — not
+because the owner ranked it; move it if that is wrong.
+
+**Blocker on picking this up: the owner has no iPhone** (iPad + Samsung). This
+needs a borrowed device, so gather everything in one sitting rather than
+discovering a missing detail later.
+
+### What the report actually says
+
+"iPhone has problems with up close photos." That is the whole of it. Before
+theorising, get:
+
+- iPhone model and iOS version (close-focus behaviour differs sharply by model).
+- **Which browser** — this decides which code path was even running (below).
+- The `?diag=1` panel: what the camera negotiated vs the 3840x2160 asked for,
+  and the reported `zoom` range.
+- One hand through `?tail=1` at the distance that fails, and the same hand at
+  arm's length, so the readings can be compared rather than described.
+
+### The fork that has to be resolved first
+
+iOS runs two completely different capture paths, and the report does not say
+which one broke:
+
+- **Safari** → live viewfinder, the dashed scan box, `captureScanArea` crops to
+  the box. Moving closer is the natural way to fill that box.
+- **Any other iOS browser** → `photoFallback` (`main.js:32`, `isIOS()`) sends
+  them to the native photo picker. **No viewfinder, no scan box, no crop** — the
+  whole image goes to the scanner. If the complaint came from Chrome on iOS, none
+  of the scan-box work is involved and the cause is elsewhere.
+
+### Why "up close" is a plausible failure mode
+
+1. **Minimum focus distance.** iPhone rear cameras cannot focus below a few
+   centimetres; newer models switch to the ultra-wide for macro automatically,
+   but that switch is a camera-app behaviour and is not guaranteed under
+   `getUserMedia`. Past the limit the tiles are simply blurred, and blurred pips
+   are exactly what the detector under-reads (see the session log: every observed
+   error under-read a half).
+2. **Our constraints may pin the lens.** `CAMERA_MODES['169']` asks for
+   3840x2160. A specific resolution request can select a particular camera and
+   suppress automatic lens switching. `?cam=43` and `?cam=native` already exist
+   in `camera-diag.js` for exactly this kind of comparison and cost a URL change,
+   not a deploy.
+3. **The scan box may be causing it.** Shipped 2026-07-31: the dashed box bounds
+   the scan, so the instinct is to move the phone closer until the hand fills it.
+   That pushes people toward the focus limit. If this report post-dates that
+   change, treat the two as related until proven otherwise.
+
+### Levers, cheapest first
+
+- **Zoom instead of proximity.** The Samsung reported `zoom: 1 (range 1-8)`. If
+  iOS exposes zoom too, zooming lets the player stand back — outside the focus
+  limit — while still filling the box. Nothing in the app touches zoom today.
+- **`?cam=43` / `?cam=native`** to see whether the lens changes behaviour.
+- **Guidance:** the tip card already says to leave gaps; "hold about a forearm
+  away" is a one-line change if distance is the cause.
+- **A bigger scan box** would let a hand fill it from further back — but that
+  reopens the framing decision made today, so measure before touching it.
+
+### Watch out
+
+- Do not fix this by shrinking capture resolution: the iPad already has a WASM
+  out-of-memory issue whose lever is capture size (see the camera entry below),
+  and pip accuracy at reduced capture size is unmeasured. Changing both at once
+  makes either result unreadable.
+- `pnpm test:accuracy` cannot see this. It feeds corpus photos through the file
+  path — no camera, no focus, no lens. A close-focus regression is invisible to
+  every automated test in this repo and needs the device.
+
+---
+
 ## Let a player see their score history in a game
 
 **Status:** requested 2026-07-31, not built. **Do this together with the doubles
