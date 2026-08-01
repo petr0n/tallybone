@@ -11,6 +11,67 @@ offline retry queue, cross-device history, hardened auth) live in
 
 ---
 
+## Make it work in Brave
+
+**Status:** requested 2026-07-31, not built. **The actual symptom was not
+recorded** — whoever picks this up should get it first ("scanner never loads" vs
+"reads garbage" vs "loses my seat" point at three different causes below).
+
+### Why Brave specifically is a risk
+
+Brave Shields is on by default and changes three things this app depends on.
+None of these are hypothetical browser trivia — each maps to a line in this repo.
+
+1. **A third-party CDN in the critical path.** `index.html:11` loads the ONNX
+   runtime from `cdn.jsdelivr.net`. Shields blocks third-party scripts on some
+   settings, and if that script does not load, `initScanner()` fails and the
+   scanner is dead on arrival while the rest of the app looks fine. This is the
+   most likely cause of a hard "doesn't work" and the easiest to confirm: the
+   console shows the blocked request.
+2. **Canvas farbling.** Brave's fingerprinting defence perturbs canvas pixel
+   reads. This app reads pixels constantly — `camera.js` (three `getImageData`
+   calls), `upload.js`, `scanner/preprocess.js`, and `toDataURL` in `review.js`
+   for the per-tile crops. Farbled pixels would not throw; they would quietly
+   degrade detection and pip counts. A scanner that reads *worse* only in Brave,
+   with no error anywhere, is exactly this.
+3. **Storage clearing.** Seats are reclaimed from `localStorage` (`tb.id.<CODE>`,
+   `tb.name`, `tb.active`). Brave can clear site data aggressively on exit or in
+   private windows, which pushes every rejoin onto the name-matching fallback —
+   see the identity entry below for why that path is the weak one.
+
+### How to pin it down
+
+Run the same hand in Brave with Shields **up** and Shields **down** on
+tallybone.com:
+
+- Scanner never loads with Shields up, works with them down → the CDN script (1).
+- Loads either way but reads noticeably worse with Shields up → farbling (2).
+- Works, but a refresh loses the seat → storage (3).
+
+`?diag=1` distinguishes a camera problem from the rest; `?tail=1` streams the
+readings so a Brave hand can be compared against the same hand in Chrome.
+
+### The fixes, once the cause is known
+
+- **(1) Vendor the ONNX runtime** instead of the CDN `<script>`. Note the
+  camera/viewfinder entry below argues vendoring is *not* required for the
+  offline promise — that reasoning stands. But a third-party script that a
+  popular browser may block is a different argument for the same change, and
+  this one is about the app working at all. It also removes the unpinned,
+  no-SRI dependency in the critical path.
+- **(2)** Nothing in-app can undo farbling; it would mean telling Brave users to
+  allow fingerprinting for the site. Measure the real cost first — `?tail=1` on
+  the same physical hand in both browsers — before claiming there is one.
+- **(3)** Already covered by the durable-device-id entry below.
+
+### Watch out
+
+- Brave is Chromium, so a desktop Chrome check proves nothing about Shields.
+- Test on the **phone** build of Brave, not desktop: the camera path and the
+  storage lifetime both differ there, and phones are the only real target.
+
+---
+
 ## Let a player see their score history in a game
 
 **Status:** requested 2026-07-31, not built. **Do this together with the doubles
