@@ -5,7 +5,7 @@
 // the copy-to-clipboard pill, and main.js's boot-time parser. If they ever
 // disagree, scanned links silently stop working, so pin the round trip here.
 import assert from 'node:assert';
-import { joinUrl, joinCodeFromUrl, JOIN_PARAM, mintCode, CODE_ALPHABET } from './game-state.js';
+import { joinUrl, joinCodeFromUrl, JOIN_PARAM, mintCode, CODE_ALPHABET , wonThisRound } from './game-state.js';
 
 {
   // Under node there is no `location`, so config.js falls back to the prod base.
@@ -52,4 +52,23 @@ import { joinUrl, joinCodeFromUrl, JOIN_PARAM, mintCode, CODE_ALPHABET } from '.
   // Codes avoid read-aloud lookalikes; the parser must not reintroduce them.
   assert.ok(!/[O0I1]/.test(CODE_ALPHABET), 'alphabet excludes O/0/I/1');
   console.log('code alphabet: still lookalike-free: PASS');
+}
+
+// --- who just won the round -------------------------------------------------
+// Going out is the only way to finish a round on zero: a hand with any tile is
+// worth at least 1, and the one tile that looks like nothing — the double blank
+// — scores 40, not 0. So a turned-in 0 IS the round win, with no extra state
+// from the server.
+{
+  const won = { you: true, total: 14, last: 0 };
+  assert.strictEqual(wonThisRound(won), true, 'turned in 0 = went out');
+
+  assert.strictEqual(wonThisRound({ you: true, total: 14, last: 6 }), false, 'turned in points');
+  assert.strictEqual(wonThisRound({ you: true, total: null, last: 0 }),
+    false, 'has NOT turned in yet — last is 0 because the round reset it');
+  assert.strictEqual(wonThisRound({ you: false, total: 14, last: 0 }),
+    false, 'somebody else winning is not my celebration');
+  assert.strictEqual(wonThisRound({ you: true, total: 40, last: 40 }),
+    false, 'caught with the double blank is the opposite of winning');
+  console.log('wonThisRound: only the player who turned in 0: PASS');
 }

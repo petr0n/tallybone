@@ -126,3 +126,46 @@ test('full motion: the game plays through unchanged', async ({ browser }) => {
   await rosa.context.close();
   await dee.context.close();
 });
+
+// --- the round win ----------------------------------------------------------
+// The player who goes out sees a celebration on THEIR screen and nobody else
+// does. Asserted through the DOM rather than by catching keyframes mid-flight,
+// which would be a race.
+
+test('going out celebrates on your screen only', async ({ browser }) => {
+  const rosa = await phone(browser, 'no-preference');
+  const dee = await phone(browser, 'no-preference');
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+
+  // Rosa goes out; Dee turns in points.
+  await rosa.page.getByRole('button', { name: 'I won this round' }).click();
+  await expect(rosa.page.getByText('STANDINGS')).toBeVisible();
+
+  await expect(rosa.page.locator('.tb-win'), 'the player who went out').toHaveCount(1);
+  await expect(rosa.page.getByText('YOU WENT OUT')).toBeVisible();
+  await expect(dee.page.locator('.tb-win'), 'everybody else').toHaveCount(0);
+
+  // It must not eat taps: the manager's control sits under the overlay.
+  await expect(rosa.page.getByRole('button', { name: /Start round/ })).toBeVisible();
+  await rosa.page.getByRole('button', { name: /Start round/ }).click();
+
+  await rosa.context.close();
+  await dee.context.close();
+});
+
+test('reduced motion: going out is not celebrated with confetti', async ({ browser }) => {
+  const rosa = await phone(browser, 'reduce');
+  const dee = await phone(browser, 'no-preference');
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+
+  await rosa.page.getByRole('button', { name: 'I won this round' }).click();
+  await expect(rosa.page.getByText('STANDINGS')).toBeVisible();
+  await expect(rosa.page.locator('.tb-win__bit'), 'no particles at all').toHaveCount(0);
+
+  await rosa.context.close();
+  await dee.context.close();
+});

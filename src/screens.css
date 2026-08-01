@@ -239,8 +239,48 @@
   .home-enter .home-enter__logo, .home-enter .home-enter__row {
     animation: none !important; opacity: 1 !important; transform: none !important;
   }
+  /* Confetti is precisely the effect this setting exists for: remove it, do not
+     soften it. motion.js refuses to build it at all; this is the belt to that
+     brace, and it keeps the badge readable rather than hiding it. */
+  .tb-win__bit { display: none !important; }
+  .tb-win__badge { animation: none !important; }
   /* tb-bob (the Game Over avatar) and tb-pulse (the scanning tiles) both run
      forever and were not covered here. Both are set as inline styles, hence the
      attribute match. The JS-driven entrances opt out inside motion.js instead. */
   [style*="tb-bob"], [style*="tb-pulse"] { animation: none !important; }
+}
+
+/* ---------- round win: the player who went out, on their own screen ----------
+   Overlay only — pointer-events:none so it can never eat a tap on the footer,
+   and absolutely positioned so it cannot reflow the standings under it. Pure
+   keyframes, no rAF loop: the screen is replaced wholesale on navigation, so
+   the animation dies with its element and there is nothing to clean up. */
+.tb-win { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 40; }
+.tb-win__bit {
+  position: absolute; top: -24px; width: 10px; height: 16px; border-radius: 2px;
+  opacity: 0; animation: tb-fall var(--tb-win-dur, 2600ms) cubic-bezier(.28,.62,.42,1) var(--tb-win-delay, 0ms) forwards;
+}
+@keyframes tb-fall {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+  8%   { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--tb-win-drift, 0px), 108vh, 0) rotate(var(--tb-win-spin, 540deg)); }
+}
+/* The banner the confetti is celebrating — one beat, then it settles. */
+.tb-win__badge {
+  position: absolute; left: 50%; top: 84px; transform: translateX(-50%);
+  background: var(--sky); border: var(--ol-base) solid var(--ink); border-radius: var(--r-pill);
+  box-shadow: var(--shadow-raised); padding: 9px 18px; font-family: var(--font-display);
+  font-size: 19px; color: var(--ink); white-space: nowrap;
+  animation: tb-win-pop 2400ms cubic-bezier(.23,1,.32,1) both;
+}
+/* Pops, holds, then clears itself. It necessarily covers the "LOWEST TOTAL
+   WINS" strip while it is up — an overlay has to sit on something — so it does
+   not stay there. */
+@keyframes tb-win-pop {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.86); }
+  13%  { opacity: 1; transform: translateX(-50%) translateY(-3px) scale(1.04); }
+  22%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  78%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(.98); }
 }

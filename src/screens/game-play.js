@@ -4,10 +4,10 @@
 import { domino } from '../components/domino.js';
 import { html, el } from '../dom.js';
 import { handTotal } from '../scoring.js';
-import { enter, enterIfNew } from '../motion.js';
+import { enter, enterIfNew, isNew, reducedMotion } from '../motion.js';
 import { helpIcon } from '../components/ui.js';
 import { tallyMark } from '../brand.js';
-import { initials, seated, scoredPlayers, ranked, finalRanked, SEAT_TOKENS } from '../game-state.js';
+import { initials, seated, scoredPlayers, ranked, finalRanked, wonThisRound, SEAT_TOKENS } from '../game-state.js';
 
 const NUM_WORD = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE'];
 
@@ -125,8 +125,40 @@ export function renderSubmit({ game, tiles, onBack, onTurnIn, onChangeRead, onRu
 }
 
 // 12 · Standings
+
+// The player who went out sees this on THEIR screen and nobody else's — one
+// person, a few times a night, on the moment that is about them.
+//
+// Keyed to the round, not to insertion: Standings re-renders on every server
+// snapshot, so anything tied to being rendered would replay each time another
+// player turns in. `isNew` makes it fire once per round and never again.
+// Standings is a LIGHT screen, so bone reads as nothing on it — ink instead.
+const WIN_COLORS = ['var(--sky)', 'var(--flare)', 'var(--check)', 'var(--ink)'];
+function roundWinOverlay(game, rows) {
+  if (reducedMotion()) return null;                    // remove it, do not soften it
+  if (!rows.some(wonThisRound)) return null;
+  if (!isNew(`roundwin:${game.code}`, game.roundNum)) return null;
+
+  const layer = el('div', 'tb-win');
+  layer.appendChild(el('div', 'tb-win__badge', 'YOU WENT OUT'));
+  // Deterministic-ish spread rather than a heavy particle count: a mid-range
+  // phone has to animate these alongside a live-updating standings list.
+  for (let i = 0; i < 26; i++) {
+    const bit = el('div', 'tb-win__bit');
+    bit.style.left = `${(i * 97) % 100}%`;
+    bit.style.background = WIN_COLORS[i % WIN_COLORS.length];
+    bit.style.setProperty('--tb-win-delay', `${(i % 9) * 90}ms`);
+    bit.style.setProperty('--tb-win-dur', `${2200 + (i % 5) * 260}ms`);
+    bit.style.setProperty('--tb-win-drift', `${((i % 7) - 3) * 22}px`);
+    bit.style.setProperty('--tb-win-spin', `${360 + (i % 4) * 220}deg`);
+    layer.appendChild(bit);
+  }
+  return layer;
+}
+
 export function renderStandings({ game, canManage, onBack, onManager, onStartNext, onDetail, onRules } = {}) {
   const rows = ranked(game);
+  const winOverlay = roundWinOverlay(game, rows);
   const pending = rows.filter((p) => p.total === null);
   const root = html('<div class="screen screen--light"></div>');
   const header = lightHeader(`TABLE ${game.code} · AFTER ROUND ${game.roundNum}`, 'STANDINGS', onBack, onRules);
@@ -178,6 +210,9 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
     foot.appendChild(html('<div style="text-align:center;font-size:14px;color:var(--secondary-light-1);padding:6px 0;">Waiting for the manager to start the next round.</div>'));
   }
   root.appendChild(foot);
+  // Last, so it layers over the list and the footer — and it is pointer-events:
+  // none, so "Start round" underneath it stays tappable while it falls.
+  if (winOverlay) root.appendChild(winOverlay);
   return root;
 }
 

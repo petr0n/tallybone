@@ -99,3 +99,19 @@ export function ranked(game) {
 export function finalRanked(game) {
   return [...scoredPlayers(game)].sort((a, b) => a.final - b.final);
 }
+
+/**
+ * Did THIS player just win the round — i.e. go out?
+ *
+ * Takes a row from `scoredPlayers()`. `total` is null until they turn in, and
+ * `last` is what they turned in this round (reset to 0 when the round opened),
+ * so both are needed: a player who has not turned in also shows last === 0.
+ *
+ * Going out is the only way to finish on zero. Any hand still holding a tile is
+ * worth at least 1, and the one tile that looks like nothing — the double blank
+ * — scores 40 (see scoring.js). So a turned-in 0 is the round win, and the
+ * server needs to record nothing extra for the app to know it.
+ */
+export function wonThisRound(p) {
+  return Boolean(p && p.you && p.total !== null && p.last === 0);
+}
