@@ -11,6 +11,63 @@ offline retry queue, cross-device history, hardened auth) live in
 
 ---
 
+## Let a player see their score history in a game
+
+**Status:** requested 2026-07-31, not built. **Do this together with the doubles
+entry below** — they are the same missing structure and one change serves both.
+
+### What the game knows today
+
+`scores` in `server/reducer.js` is one flat record per player:
+
+```
+scores: { [playerId]: { total, last, turnedIn } }
+```
+
+`total` is the running sum and `last` is *this* round's turn-in. `startScores()`
+overwrites `last` at the top of every round, so the moment round 3 opens, what
+each player scored in rounds 1 and 2 is gone — only the sum remains. Nobody can
+answer "what did I get in round 2?", or see the round where a game was lost.
+
+### Why this matters
+
+- Running totals alone hide the shape of a game. A player who was quietly at 12
+  a round until one bad hand of 60 has no way to see that.
+- It is the natural thing to want on Standings and on the Over screen, and it is
+  cheap: six players over a dozen rounds is a few hundred numbers.
+- **A missed turn-in is invisible.** A round where someone never turned in
+  contributes 0 to their total and reads exactly like a round they went out on.
+
+### The concrete fix
+
+1. Add `history: []` to `emptyGame()` — one entry per completed round:
+   `{ round, double, scores: { [playerId]: number|null } }`. `null` distinguishes
+   "did not turn in" from a genuine `0` (went out); do not collapse them.
+   This one structure also answers the doubles question below, so build it once.
+2. Append the entry where a round CLOSES, before `startScores()` wipes `last` —
+   that is `pickDouble` (starting the next round) and `callGame` (ending the
+   game from a live round). Both already mutate `g`.
+3. Players who joined late simply have no key for earlier rounds — render a dash,
+   not a zero.
+4. Read as `history || []` so games persisted before this ships still load; no DO
+   storage migration.
+5. `runItBack` must clear it, or a rematch shows the previous game's rounds.
+6. Display: a per-round column on Standings, or an expandable row per player.
+   The Over screen is the other obvious home.
+
+### Watch out
+
+- `reopenRound` sends the game from `standings` back to `round`. If the history
+  entry was already appended when the round closed, reopening must drop the last
+  entry or the round gets recorded twice when it closes again.
+- Removed players (`removed: true`) still have history worth keeping — do not
+  purge their entries when they are removed from the roster.
+- Tests: `server/reducer.test.js` around the existing `pickDouble increments
+  round, keeps totals` and `callGame -> over, runItBack resets` cases, which are
+  exactly the transitions this hooks into.
+
+---
+
 ## Remember which double started each round
 
 **Status:** requested 2026-07-31, not built.
@@ -39,6 +96,10 @@ double twice, nothing notices.
   totals, and turn-ins all persist.
 
 ### The concrete fix
+
+**Prefer the shared `history` array from the score-history entry above** — one
+record per round carrying both the double and that round's scores — rather than a
+second parallel array. The steps below stand if it is ever built alone.
 
 1. Add `doubles: []` to `emptyGame()` in `server/reducer.js` — an array indexed
    by round, or `[{ round, double }]` if the display wants it explicit.
