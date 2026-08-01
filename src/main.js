@@ -18,8 +18,8 @@ import { renderReview } from './screens/review.js';
 import { renderSubmitted } from './screens/submitted.js';
 import { renderDenied, renderEmpty, renderUnavailable, renderCameraBlocked, renderScannerStuck } from './screens/fallback.js';
 import { renderHome, renderRules, renderCreate, renderJoin, renderLobby } from './screens/game-setup.js';
-import { renderRound, renderSubmit, renderStandings, renderManager, renderOver, renderPickDouble, renderRoundDetail } from './screens/game-play.js';
-import { mintCode, suggestedNextDouble, viewGame, joinUrl, joinCodeFromUrl } from './game-state.js';
+import { renderRound, renderSubmit, renderStandings, renderManager, renderOver, renderPickDouble, renderRoundDetail, renderFixScore } from './screens/game-play.js';
+import { mintCode, suggestedNextDouble, viewGame, scoredPlayers, joinUrl, joinCodeFromUrl } from './game-state.js';
 import { brandLockup } from './brand.js';
 import { html } from './dom.js';
 import { isIOS, isIOSNonSafari } from './platform.js';
@@ -291,6 +291,22 @@ function showRoundDetail() {
   liveRepaint = showRoundDetail;
   mount(renderRoundDetail({ game: view(), onBack: navBack, onRules: () => navGo(showRules) }));
 }
+// Deliberately NOT registered for liveRepaint: the manager is typing a number,
+// and a snapshot from anyone else turning in would wipe the field mid-entry.
+function makeShowFixScore(playerId) {
+  return function showFixScore() {
+    const g = view();
+    const player = scoredPlayers(g).find((p) => p.id === playerId);
+    if (!player) { navBack(); return; }
+    mount(renderFixScore({
+      game: g,
+      player,
+      onBack: navBack,
+      onRules: () => navGo(showRules),
+      onSave: (total) => { net.send({ t: 'setScore', id: playerId, total }); navBack(); },
+    }));
+  };
+}
 function showManager() {
   liveRepaint = showManager;
   mount(renderManager({
@@ -301,6 +317,7 @@ function showManager() {
     onReopen: () => net.send({ t: 'reopenRound' }),   // phase -> round routes everyone
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
     onCallGame: () => net.send({ t: 'callGame' }),     // phase -> over routes everyone
+    onFixScore: (id) => navGo(makeShowFixScore(id)),
   }));
 }
 function showOver() {

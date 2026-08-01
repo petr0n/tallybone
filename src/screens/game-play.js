@@ -254,7 +254,47 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
 }
 
 // 13 · Manager controls
-export function renderManager({ game, onBack, onStartNext, onReopen, onRemove, onCallGame, onRules } = {}) {
+
+// 12c · Manager enters a score for a player who cannot.
+//
+// A SCREEN, not an inline editor on the Manager list: that list re-renders on
+// every server snapshot, so a half-typed number would be wiped the moment
+// anyone else turned in. main.js deliberately does not register this one for
+// live repaint while it is open.
+export function renderFixScore({ game, player, onBack, onSave, onRules } = {}) {
+  const root = html('<div class="screen screen--light"></div>');
+  root.appendChild(lightHeader(`ROUND ${game.roundNum}`, 'ENTER A SCORE', onBack, onRules));
+
+  const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:16px;"></div>');
+  body.appendChild(html(
+    `<div style="display:flex;align-items:center;gap:12px;background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:14px;box-shadow:var(--shadow-raised);padding:13px 15px;">` +
+    `<div style="width:44px;height:44px;flex:none;border-radius:50%;background:${player.token};border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:18px;">${initials(player.name)}</div>` +
+    `<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:17px;">${player.name}</div>` +
+    `<div style="font-family:var(--font-mono);font-size:11.5px;color:var(--secondary-light-1);">${player.total === null ? 'HAS NOT TURNED IN' : 'TURNED IN ' + player.last}</div></div></div>`));
+  body.appendChild(html(
+    '<div style="font-size:14.5px;line-height:1.5;">Count the pips left in their hand and enter the total. ' +
+    'Use <strong>0</strong> if they went out. Remember the <strong>double blank is 40</strong>.</div>'));
+
+  const input = html('<input type="number" inputmode="numeric" min="0" step="1" placeholder="0" ' +
+    'style="width:100%;height:76px;text-align:center;font-family:var(--font-display);font-size:44px;color:var(--ink);' +
+    'background:var(--field-white);border:var(--ol-base) solid var(--ink);border-radius:var(--r-card);box-shadow:var(--shadow-raised);">');
+  if (player.total !== null) input.value = String(player.last);
+  body.appendChild(input);
+  root.appendChild(body);
+
+  const foot = html('<div style="flex:none;background:var(--bone);border-top:var(--ol-base) solid var(--ink);padding:16px 20px 30px;display:flex;flex-direction:column;gap:10px;"></div>');
+  const save = html('<button type="button" class="tb-btn tb-btn--primary tb-press" style="height:58px;">Save this score</button>');
+  save.addEventListener('click', () => {
+    const n = Math.max(0, Math.round(Number(input.value) || 0));
+    if (onSave) onSave(n);
+  });
+  foot.appendChild(save);
+  root.appendChild(foot);
+  setTimeout(() => { try { input.focus(); } catch { /* not focusable yet */ } }, 0);
+  return root;
+}
+
+export function renderManager({ game, onBack, onStartNext, onReopen, onRemove, onCallGame, onFixScore, onRules } = {}) {
   const root = html('<div class="screen screen--light"></div>');
   root.appendChild(darkHeader('ONLY YOU SEE THIS', 'MANAGER CONTROLS', onBack, onRules));
   const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:20px;"></div>');
@@ -273,8 +313,14 @@ export function renderManager({ game, onBack, onStartNext, onReopen, onRemove, o
     const row = html('<div style="display:flex;align-items:center;gap:12px;background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:14px;box-shadow:var(--shadow-raised);padding:11px 13px;flex:none;"></div>');
     row.appendChild(html(`<div style="width:40px;height:40px;flex:none;border-radius:50%;background:${p.token};border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:17px;">${initials(p.name)}</div>`));
     row.appendChild(html(`<div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0;"><div style="font-weight:700;font-size:16px;">${p.you ? p.name + ' (you)' : p.name}</div><div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;color:var(--secondary-light-1);">${p.total === null ? 'NOT TURNED IN' : 'TOTAL ' + p.total}</div></div>`));
-    if (p.total !== null && !p.you) {
-      row.appendChild(html('<div class="tb-press" style="cursor:pointer;height:40px;padding:0 12px;border:2.5px solid var(--ink);border-radius:10px;display:flex;align-items:center;font-weight:700;font-size:13px;">Fix score</div>'));
+    if (!p.you) {
+      // Was rendered with no click handler at all — a button that did nothing,
+      // which is exactly the control a table needs when someone's phone cannot
+      // turn in. Also offered when they have NOT turned in yet: that is the case
+      // that stalls a round.
+      const fix = html(`<div class="tb-press" style="cursor:pointer;height:40px;padding:0 12px;border:2.5px solid var(--ink);border-radius:10px;display:flex;align-items:center;font-weight:700;font-size:13px;">${p.total === null ? 'Enter score' : 'Fix score'}</div>`);
+      fix.addEventListener('click', () => onFixScore && onFixScore(p.id));
+      row.appendChild(fix);
     }
     if (!p.manager) {
       const x = html('<div class="tb-press" style="cursor:pointer;width:44px;height:44px;flex:none;border:2.5px solid var(--flare);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-weight:800;font-size:24px;line-height:1;color:var(--destructive-text);">×</div>');

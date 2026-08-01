@@ -14,7 +14,7 @@ export function emptyGame(code) {
   return { code, phase: 'lobby', roundNum: 1, currentDouble: 12, managerId: null, players: [], scores: {} };
 }
 
-const MANAGER_INTENTS = new Set(['startRound', 'pickDouble', 'removePlayer', 'reopenRound', 'callGame', 'runItBack']);
+const MANAGER_INTENTS = new Set(['startRound', 'pickDouble', 'removePlayer', 'reopenRound', 'callGame', 'runItBack', 'setScore']);
 const clampDouble = (d) => Math.max(0, Math.min(12, d | 0));
 const activePlayers = (g) => g.players.filter((p) => !p.removed);
 
@@ -69,6 +69,23 @@ export function applyIntent(game, intent, actorId) {
       g.currentDouble = clampDouble(intent.d);
       g.roundNum += 1; g.phase = 'round';
       startScores(g, false);
+      return { game: g };
+    }
+    // The manager turns a score in ON BEHALF of a player. A phone that cannot
+    // scan — or cannot even load the scanner, which happened at a real table —
+    // otherwise stalls the whole round: nobody else can enter that number and
+    // the round never closes. Same arithmetic as turnIn, including the correct-
+    // don't-double-count rule, so fixing a wrong entry is the same action.
+    case 'setScore': {
+      if (g.phase !== 'round' && g.phase !== 'standings') return { game, error: 'bad_phase' };
+      const p = g.players.find((x) => x.id === intent.id && !x.removed);
+      const s = p && g.scores[intent.id];
+      if (!p || !s) return { game, error: 'no_player' };
+      const pts = Math.max(0, intent.total | 0);
+      s.total = s.total - s.last + pts;
+      s.last = pts;
+      s.turnedIn = true;
+      if (activePlayers(g).every((x) => g.scores[x.id] && g.scores[x.id].turnedIn)) g.phase = 'standings';
       return { game: g };
     }
     case 'turnIn': {

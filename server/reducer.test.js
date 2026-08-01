@@ -87,6 +87,38 @@ describe('reducer', () => {
     expect(g.scores.a).toMatchObject({ last: 4, total: 4 });
   });
 
+  // A player whose phone cannot scan or reach the turn-in screen at all — a real
+  // table, an iPhone whose scanner would not load — must not stall the game. The
+  // manager enters it for them.
+  it('setScore lets the manager turn a score in for someone else', () => {
+    let g = emptyGame('KX7Q2');
+    g = join(g, 'a', 'Rosa');
+    g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+
+    g = applyIntent(g, { t: 'setScore', id: 'b', total: 18 }, 'a').game;
+    expect(g.scores.b).toEqual({ total: 18, last: 18, turnedIn: true });
+
+    // Corrects rather than double-counting, exactly like turnIn.
+    g = applyIntent(g, { t: 'setScore', id: 'b', total: 12 }, 'a').game;
+    expect(g.scores.b.total).toBe(12);
+
+    // And it closes the round when it was the last one outstanding.
+    g = applyIntent(g, { t: 'turnIn', total: 0 }, 'a').game;
+    expect(g.phase).toBe('standings');
+  });
+
+  it('setScore is manager-only and rejects an unknown player', () => {
+    let g = emptyGame('KX7Q2');
+    g = join(g, 'a', 'Rosa');
+    g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+
+    expect(applyIntent(g, { t: 'setScore', id: 'a', total: 5 }, 'b').error).toBe('not_manager');
+    expect(applyIntent(g, { t: 'setScore', id: 'nobody', total: 5 }, 'a').error).toBe('no_player');
+    expect(g.scores.a).toEqual({ total: 0, last: 0, turnedIn: false });
+  });
+
   it('turnIn by a non-player is rejected', () => {
     let g = emptyGame('C'); g = join(g, 'a', 'Rosa');
     g = applyIntent(g, { t: 'startRound' }, 'a').game;

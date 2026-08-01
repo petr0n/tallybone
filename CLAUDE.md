@@ -258,7 +258,9 @@ that minted the code opening the table; it claims the game **in the lobby only**
 because the Create screen shows the QR before the creator has taken a seat and a
 guest who scans it would otherwise become manager. Without the flag, first joiner
 wins), 
-`startRound`(mgr), `pickDouble{d}`(mgr), `turnIn{total}`, `removePlayer{id}`(mgr),
+`startRound`(mgr), `pickDouble{d}`(mgr), `turnIn{total}`, `setScore{id,total}`(mgr —
+enters/corrects a player's score for the round; a phone that cannot turn in would
+otherwise stall the round for everyone), `removePlayer{id}`(mgr),
 `reopenRound`(mgr), `callGame`(mgr), `runItBack`(mgr).
 DO→phone: `state{game}`, `you{playerId,token,role}`, `error{code}`.
 `game = { code, phase:'lobby'|'round'|'standings'|'over', roundNum, currentDouble,

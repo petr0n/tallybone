@@ -171,3 +171,39 @@ test('round detail shows what everyone turned in, and cannot resubmit', async ({
   await rosa.context.close();
   await dee.context.close();
 });
+
+// A player whose phone cannot turn in — an iPhone whose scanner would not load —
+// stalls the whole round: the round only closes when everyone is in, and nobody
+// else could enter that number. "Fix score" in Manager controls was rendered
+// with no click handler at all. Reported as a game killer (2026-07-31).
+test('the manager can enter a score for a player who cannot', async ({ browser }) => {
+  const rosa = await newPhone(browser);
+  const dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+
+  // Rosa is in; Dee's phone is useless, so Rosa enters 23 for her.
+  await rosa.page.getByRole('button', { name: 'I won this round' }).click();
+  await expect(rosa.page.getByText('STANDINGS')).toBeVisible();
+  await rosa.page.getByText('⚙', { exact: true }).click();
+  await expect(rosa.page.getByText('MANAGER CONTROLS')).toBeVisible();
+  await rosa.page.getByText('Enter score').click();
+
+  await expect(rosa.page.getByText('ENTER A SCORE')).toBeVisible();
+  await rosa.page.locator('input[type=number]').fill('23');
+  await rosa.page.getByRole('button', { name: 'Save this score' }).click();
+
+  // The manager's own list reflects it immediately.
+  await expect(rosa.page.getByText('MANAGER CONTROLS')).toBeVisible();
+  await expect(rosa.page.getByText(/TOTAL 23/)).toBeVisible();
+
+  // And it is real server state, not local: Dee's phone shows it too. (Standings
+  // is deliberately not an auto-nav phase, so she opens it herself.)
+  await dee.page.getByText('Scores', { exact: true }).click();
+  await expect(dee.page.getByText('STANDINGS')).toBeVisible({ timeout: 30000 });
+  await expect(dee.page.getByText('23').first()).toBeVisible();
+
+  await rosa.context.close();
+  await dee.context.close();
+});
