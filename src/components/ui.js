@@ -134,3 +134,14 @@ export function helpIcon(dark, onHelp) {
   if (onHelp) c.addEventListener('click', onHelp);
   return c;
 }
+
+// leaveLink(onLeave) -> the quiet "Leave the table" text button at the foot of
+// the live game screens. Deliberately low-key: the header chevron is how you
+// step away and keep your seat; this is for giving the seat up.
+export function leaveLink(onLeave) {
+  const b = el('button', 'tb-press', 'Leave the table');
+  b.type = 'button';
+  b.style.cssText = 'align-self:center;flex:none;margin-top:6px;padding:10px 14px;background:none;border:0;font:inherit;font-size:14px;color:var(--secondary-light-1);text-decoration:underline;cursor:pointer;';
+  b.addEventListener('click', onLeave);
+  return b;
+}

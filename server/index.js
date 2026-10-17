@@ -1,6 +1,7 @@
 // server/index.js — Cloudflare Worker entry point. Routes /api/* requests
 // to the GameRoom Durable Object for that join code. Static assets are
 // served by Workers Assets (configured in wrangler.jsonc).
+import { DEVICE_COOKIE, deviceFrom } from './game-room.js';
 export { GameRoom } from './game-room.js';
 
 export default {
@@ -20,6 +21,17 @@ export default {
         console.log('SCANLOG unreadable', e && e.message);
       }
       return new Response(null, { status: 204 });
+    }
+
+    // Mint (or refresh) this device's id cookie. HttpOnly + server-set, so it is
+    // neither readable by script nor capped like script storage; re-sent on every
+    // call to push the expiry out. 400 days is the longest browsers accept.
+    if (url.pathname === '/api/device' && request.method === 'POST') {
+      const id = deviceFrom(request) || crypto.randomUUID();
+      return new Response(null, { status: 204, headers: {
+        'Set-Cookie': `${DEVICE_COOKIE}=${id}; Max-Age=34560000; Path=/api; HttpOnly; Secure; SameSite=Lax`,
+        'Cache-Control': 'no-store',
+      } });
     }
 
     if (url.pathname.startsWith('/api/game/')) {

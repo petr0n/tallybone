@@ -11,14 +11,25 @@ import { emptyGame, applyIntent } from './reducer.js';
 const CODE_RE = /\/api\/game\/([A-Za-z0-9]+)\/ws/;
 const send = (ws, obj) => { try { ws.send(JSON.stringify(obj)); } catch { /* socket gone */ } };
 
+// The device id: an HttpOnly cookie minted by POST /api/device (server/index.js).
+// It lives apart from localStorage (which browsers may evict, and where the
+// per-game token lives), so it can reseat a player whose token is gone.
+export const DEVICE_COOKIE = 'tb_dev';
+export function deviceFrom(request) {
+  const m = /(?:^|;\s*)tb_dev=([0-9a-f-]{36})(?:;|$)/.exec(request.headers.get('Cookie') || '');
+  return m ? m[1] : null;
+}
+
 export class GameRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.game = null;        // canonical game (see reducer.js shape)
     this.tokens = {};        // token -> playerId (seat reclaim)
+    this.devices = {};       // device id -> the seat that device last took here
     ctx.blockConcurrencyWhile(async () => {
       this.game = (await ctx.storage.get('game')) || null;
       this.tokens = (await ctx.storage.get('tokens')) || {};
+      this.devices = (await ctx.storage.get('devices')) || {};
     });
   }
 
@@ -33,7 +44,7 @@ export class GameRoom extends DurableObject {
     }
     const [client, server] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ playerId: null }); // identity assigned on hello/join
+    server.serializeAttachment({ playerId: null, device: deviceFrom(request) }); // seat assigned on hello/join
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -42,10 +53,20 @@ export class GameRoom extends DurableObject {
     try { msg = JSON.parse(raw); } catch { return; }
 
     // Reconnect: reclaim a seat by token (or connect anonymously).
+    // Token first; failing that, the seat this device last held. A device match
+    // gets a fresh token so the phone's storage is repopulated.
     if (msg.t === 'hello') {
-      const playerId = (msg.token && this.tokens[msg.token]) || null;
-      ws.serializeAttachment({ playerId });
-      send(ws, { t: 'you', playerId, token: msg.token || null, role: this.roleOf(playerId) });
+      let playerId = (msg.token && this.tokens[msg.token]) || null;
+      let token = msg.token || null;
+      const { device } = ws.deserializeAttachment() || {};
+      if (!playerId && device && this.devices[device]) {
+        playerId = this.devices[device];
+        token = crypto.randomUUID();
+        this.tokens[token] = playerId;
+        await this.persist();
+      }
+      this.seat(ws, playerId);
+      send(ws, { t: 'you', playerId, token, role: this.roleOf(playerId) });
       this.broadcast();
       return;
     }
@@ -73,8 +94,14 @@ export class GameRoom extends DurableObject {
       // reject the player from their own seat.
       const mySeat = (ws.deserializeAttachment() || {}).playerId;
       if (mySeat) live.delete(mySeat);
-      const reclaim = wanted && this.game && this.game.players.find(
-        (p) => !p.removed && p.name.trim().toLowerCase() === wanted && !live.has(p.id));
+      // The seat this socket already holds (by token or device) wins when the
+      // name matches — exact, where two same-named seats would be a coin toss.
+      // A seated match first; failing that, a seat its player gave up (left or
+      // was removed) — coming back puts them in it with their total.
+      const free = (p) => p.name.trim().toLowerCase() === wanted && !live.has(p.id);
+      const players = (this.game && this.game.players) || [];
+      const reclaim = wanted && (players.find((p) => p.id === mySeat && free(p))
+        || players.find((p) => !p.removed && free(p)) || players.find((p) => p.removed && free(p)));
 
       // Reusing the seat's id makes the reducer's `x.id !== intent.id` exclusion
       // skip their own row, so name_taken no longer fires and the existing
@@ -91,7 +118,7 @@ export class GameRoom extends DurableObject {
       if (error) return send(ws, { t: 'error', code: error });
       this.game = game;
       this.tokens[token] = playerId;
-      ws.serializeAttachment({ playerId });
+      this.seat(ws, playerId);
       await this.persist();
       send(ws, { t: 'you', playerId, token, role: this.roleOf(playerId) });
       this.broadcast();
@@ -111,6 +138,15 @@ export class GameRoom extends DurableObject {
   async webSocketClose(ws, code, reason) {
     this.broadcast(); // `connected` is derived live from open sockets
     try { ws.close(code, reason); } catch { /* already closed */ }
+  }
+
+  // Bind a socket to a seat, and remember it as this device's seat in this game.
+  // One device -> its LATEST seat: a phone passed to a second player takes a new
+  // seat by name, and that becomes what the device reclaims.
+  seat(ws, playerId) {
+    const a = ws.deserializeAttachment() || {};
+    ws.serializeAttachment({ ...a, playerId });
+    if (a.device && playerId) this.devices[a.device] = playerId;
   }
 
   roleOf(playerId) {
@@ -140,5 +176,6 @@ export class GameRoom extends DurableObject {
   async persist() {
     await this.ctx.storage.put('game', this.game);
     await this.ctx.storage.put('tokens', this.tokens);
+    await this.ctx.storage.put('devices', this.devices);
   }
 }

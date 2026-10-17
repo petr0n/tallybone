@@ -150,6 +150,46 @@ describe('reducer', () => {
     expect(g.players.find((p) => p.id === 'b').removed).toBe(true);
   });
 
+  // Leaving mid-game must not stall the table: the round stops waiting on the
+  // leaver, the manager role moves on, and the leaver's numbers stay put.
+  it('leave: closes a round waiting only on the leaver, hands off the manager', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee'); g = join(g, 'c', 'Jo');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 6 }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 4 }, 'b').game;
+    g = applyIntent(g, { t: 'leave' }, 'c').game;              // the only one still counting
+    expect(g.phase).toBe('standings');
+    expect(g.players.find((p) => p.id === 'c').removed).toBe(true);
+    g = applyIntent(g, { t: 'leave' }, 'a').game;              // the manager walks out
+    expect(g.managerId).toBe('b');
+    expect(g.scores.a.total).toBe(6);
+    expect(applyIntent(g, { t: 'leave' }, 'nobody').error).toBe('not_joined');
+  });
+
+  it('a manager removing the last player still counting closes the round', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 6 }, 'a').game;
+    g = applyIntent(g, { t: 'removePlayer', id: 'b' }, 'a').game;
+    expect(g.phase).toBe('standings');
+  });
+
+  it('rejoining keeps the seat; a turn-in counts once whenever they come back', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 9 }, 'b').game;
+    g = applyIntent(g, { t: 'leave' }, 'b').game;              // a still counting
+    g = join(g, 'b', 'Dee');                                   // back, same round
+    expect(g.scores.b).toEqual({ total: 9, last: 9, turnedIn: true });
+    g = applyIntent(g, { t: 'turnIn', total: 5 }, 'b').game;   // a correction, not 9 + 5
+    expect(g.scores.b.total).toBe(5);
+    g = applyIntent(g, { t: 'leave' }, 'b').game;
+    g = applyIntent(g, { t: 'turnIn', total: 2 }, 'a').game;   // -> standings
+    g = applyIntent(g, { t: 'pickDouble', d: 11 }, 'a').game;
+    g = join(g, 'b', 'Dee');                                   // back, a later round
+    expect(g.scores.b).toEqual({ total: 5, last: 0, turnedIn: false });
+  });
+
   it('reopenRound returns standings -> round (manager-only)', () => {
     let g = emptyGame('C'); g = join(g, 'a', 'Rosa');
     g = applyIntent(g, { t: 'startRound' }, 'a').game;

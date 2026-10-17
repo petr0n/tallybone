@@ -7,7 +7,7 @@ import { tallyMark } from '../brand.js';
 import { initials, seated, joinUrl, MAX_SEATS, SEAT_TOKENS } from '../game-state.js';
 import { qr } from '../components/qr.js';
 import { enterIfNew, homeEntrance } from '../motion.js';
-import { helpIcon } from '../components/ui.js';
+import { helpIcon, leaveLink } from '../components/ui.js';
 import heroUrl from '../assets/home-hero.png';
 
 // A REAL, scannable QR of the game's deep link, encoded on device. Scanning it
@@ -317,7 +317,7 @@ function errBanner(htmlText) {
 }
 
 // 09 · Lobby
-export function renderLobby({ game, canManage, onBack, onStartRound, onCopy, onRemove, onRules } = {}) {
+export function renderLobby({ game, canManage, onBack, onStartRound, onCopy, onRemove, onRules, onLeave } = {}) {
   const players = seated(game);
   const root = html('<div class="screen screen--light"></div>');
   const header = html('<div style="background:var(--ink);color:var(--bone);padding:14px 20px 16px;display:flex;align-items:center;gap:13px;flex:none;"></div>');
@@ -366,6 +366,7 @@ export function renderLobby({ game, canManage, onBack, onStartRound, onCopy, onR
   for (let i = players.length; i < MAX_SEATS; i++) {
     body.appendChild(html(`<div style="display:flex;align-items:center;gap:12px;border:3px dashed var(--placeholder-border);border-radius:14px;padding:12px 14px;color:var(--disabled-text);flex:none;"><div style="width:44px;height:44px;flex:none;border-radius:50%;border:2.5px dashed var(--placeholder-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:19px;">${i + 1}</div><div style="font-weight:700;font-size:16px;">Open seat</div></div>`));
   }
+  if (onLeave) body.appendChild(leaveLink(onLeave));
   root.appendChild(body);
 
   const foot = html('<div style="flex:none;background:var(--bone);border-top:var(--ol-base) solid var(--ink);padding:16px 20px 30px;display:flex;flex-direction:column;gap:10px;"></div>');

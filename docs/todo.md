@@ -103,143 +103,12 @@ which one broke:
 
 ---
 
-## Confetti for the player who just won the round
-
-**Status:** requested 2026-07-31, scope clarified the same day, not built.
-**Difficulty: low** — client-only, no server or protocol change.
-
-### The design (clarified by the owner)
-
-The player who **went out** sees the celebration **on their own screen**, on
-Standings. Nobody else's screen changes. That is deliberately not a broadcast:
-one person sees it, a few times a night, on the moment that is about them.
-(The earlier framing here worried about confetti firing for everyone after every
-round — a burst that delights twice and irritates for the rest of the evening.
-Per-player scoping removes that objection entirely.)
-
-Game Over already has its own once-a-game beat (the bobbing winner avatar and a
-`--dur-reveal` entrance); this is a separate, smaller moment and should not try
-to compete with it.
-
-### Everything needed is already on the screen
-
-`scoredPlayers()` (`src/game-state.js:79`) gives each row `you`, `last` (THIS
-round's turn-in) and `total` (null until they turn in). So:
-
-```js
-const iWonThisRound = p.you && p.total !== null && p.last === 0;
-```
-
-The one assumption: turning in 0 means you went out. That holds — the only
-zero-value hand is an empty one, since a lone `0/0` scores 40, not 0.
-
-### The four things to get right
-
-1. **Once per round.** Live screens re-render on every server snapshot, so
-   anything keyed to insertion replays each time another player turns in. Use
-   `enterIfNew(el, 'roundwin', game.roundNum)` from `motion.js`.
-2. **Reduced motion removes it**, not softens it — `reducedMotion()` plus the
-   `prefers-reduced-motion` block in `screens.css`. This is the effect that
-   setting exists for.
-3. **Overlay only.** `position: absolute` + `pointer-events: none`, so it cannot
-   block the footer or reflow the standings list under it.
-4. **CSS keyframes, not a JS loop.** The screen is replaced wholesale on
-   navigation, so a keyframe dies with its element and there is nothing to clean
-   up — unlike a rAF loop, which is the same leak class as the resize listener
-   the capture screen had to start removing.
-
-### Watch out
-
-- Standings is ink-dark; particles need the existing palette (`--sky`,
-  `--flare`, `--check`, `--bone`). Do not invent hues — pip colour is never a
-  signal anywhere in this app.
-- Transform and opacity only, and keep the particle count low enough that a
-  mid-range phone does not stutter; the rest of the app's motion stays off the
-  layout/paint path deliberately.
-- The manager can start the next round at any moment, which pulls every phone to
-  the Round screen. A celebration that is cut off mid-flight is fine; one that
-  blocks or delays that transition is not.
-- No new dependency. A canvas-confetti library is ~10KB, but this app vendors
-  rather than adds (see `src/vendor/qrcode.js`), and positioned divs on a
-  keyframe are enough.
-
----
-
-## Make player identity solid: a durable device id instead of name matching
-
-**Status:** deferred 2026-07-29. Name matching is good enough for now (owner's
-call). This entry exists so the weakness is a known trade-off, not a surprise.
-
-### What the app stores today
-
-Verified by dumping browser storage after a real join — no cookies anywhere in
-`src/` or `server/`, everything is localStorage:
-
-```
-tb.name        Rosa                                  <- device-wide, the ONLY cross-game value
-tb.id.<CODE>   {playerId, token, name}               <- per GAME CODE, not per device
-tb.active      <CODE>                                <- which game to reconnect to
-```
-
-Two layers reclaim a seat, in order:
-
-1. **Token** (`tb.id.<code>`) — exact and silent, via the `hello` intent. Handles
-   refresh, backgrounding, app-switching. This is the normal path and it is fine.
-2. **Name** (`tb.name`) — the fallback when the token is gone: storage eviction
-   (iOS caps localStorage lifetime), a reinstall, private mode, or a different
-   phone. `server/game-room.js`'s `join` handler reclaims a **disconnected** seat
-   whose name matches, case-insensitively.
-
-### Why this is weak
-
-There is no durable device identity — a new `playerId` + `token` is minted per
-game, so cross-game "who are you" rests entirely on a display name.
-
-- Two players who share a first name at one table cannot be distinguished by the
-  fallback. The second gets `name_taken` while the first is connected, and could
-  walk into the other's seat once it goes quiet.
-- The fallback cannot simply be tightened. When storage is wiped, name matching
-  is the *only* route back in; removing it reintroduces the lockout bug fixed in
-  `2b35b90` (a player locked out of their own game by their own name).
-- Acceptable because the Phase-2 spec locks a **casual/friends trust tier** (§2):
-  the 5-char code is the only gate and we do not defend against a malicious
-  player inside your own game.
-
-### The fix, when it matters
-
-1. Mint one `tb.device` UUID on first run; persist it device-wide alongside
-   `tb.name` in `src/net.js`.
-2. Send it on both `hello` and `join`.
-3. In `server/game-room.js`, bind seats to the device id and resolve in this
-   order: **token → device id → name (disconnected only)**. Keep the name step as
-   a genuine last resort so a wiped device still gets back in.
-4. Persist a `devices` map beside the existing `tokens` map in DO storage.
-
-This makes reseating exact, lets same-named players coexist, and shrinks the
-name path to the rare case it was meant for. Reducer stays pure — the DO resolves
-identity and passes an id in, as it does today.
-
-### Watch out
-
-- `tokens` is already a many-tokens-to-one-`playerId` map; `devices` should be
-  one device to one seat *per game*, so a shared device (two people passing one
-  phone) must still be able to hold two seats. Do not key seats on device id
-  alone.
-- Tests to extend: `tests/rejoin.mjs` (protocol-level reclaim, incl. the
-  still-connected name being refused), `tests/e2e/remembers-me.spec.js` (stale
-  token reseats with nothing typed), `tests/e2e/leave-and-return.spec.js`
-  (backing out keeps the seat). A same-name-collision case is the obvious gap to
-  add.
-
----
-
 ## Make it work in Brave
 
-**Status:** requested 2026-07-31, not built. **Priority: LOW** — owner's call the
-same day it was filed. Consistent with the evidence: no actual failure has been
-observed, and the risks below are read off this repo's code rather than off a bug
-report. Do not spend a session on it speculatively; it becomes real the moment
-someone turns up with Brave and something breaks.
+**Status:** requested 2026-07-31, not built. **Not a priority** — owner's call,
+re-confirmed 2026-10-17. No actual failure has been observed; the risks below are
+read off this repo's code. Do not pick this up unless someone turns up with Brave
+and something breaks.
 
 **The actual symptom was not recorded** — whoever picks this up should get it
 first ("scanner never loads" vs "reads garbage" vs "loses my seat" point at three
@@ -264,8 +133,8 @@ None of these are hypothetical browser trivia — each maps to a line in this re
    with no error anywhere, is exactly this.
 3. **Storage clearing.** Seats are reclaimed from `localStorage` (`tb.id.<CODE>`,
    `tb.name`, `tb.active`). Brave can clear site data aggressively on exit or in
-   private windows, which pushes every rejoin onto the name-matching fallback —
-   see the identity entry below for why that path is the weak one.
+   private windows. The `tb_dev` device cookie (2026-10-17) reseats a player whose
+   token is gone, but clearing ALL site data drops the cookie too, leaving name.
 
 ### How to pin it down
 
@@ -309,11 +178,6 @@ readings so a Brave hand can be compared against the same hand in Chrome.
 - **`test:stress` is not in `test:all`.** Deliberate — it needs a dev server
   already running, whereas the Playwright tiers self-host. Revisit if the
   checklist should be a single command.
-- **No explicit "leave the table" before the game ends.** Since `a8fe485` the
-  back chevron is navigation and keeps the seat; the only deliberate exit is the
-  Over screen's Home button. A player who wants out mid-game has no affordance,
-  and reloading pulls them back in (correct — they are still seated server-side —
-  but there is no way to say "I'm done").
 - **Real GB-s measurement needs a scoped token.** The Wrangler OAuth token
   cannot read the GraphQL Analytics API (`10000 Authentication error`); it needs
   **Account Analytics: Read**. See `server/README.md` for the query.
@@ -341,9 +205,9 @@ instead — see `tests/e2e/never-lose-your-place.spec.js`, which covers the phon
 locking / app switching (socket killed while offline), the tab being closed and
 reopened, and a completely different device with empty storage.
 
-If a mid-game **Leave the table** affordance is ever added (see the loose end
-above), *that* is where a confirm belongs — our own in-app dialog, which works on
-iOS too, rather than the browser's.
+The mid-game **Leave the table** link (2026-10-17) is where a confirm belongs, and
+it has one: a plain `confirm()` from a tap, which iOS Safari does show — unlike
+`beforeunload`, which is the thing that never fires there.
 
 ---
 

@@ -12,6 +12,13 @@ const idKey = (c) => `tb.id.${c}`;
 // made to retype their name from memory. Remembering the name means a matching
 // name is enough to put them back in their seat with nothing typed.
 const NAME_KEY = 'tb.name';
+// Ask the server for this device's id cookie (HttpOnly; see server/index.js).
+// Fire-and-forget at load: the cookie rides along on every later socket, and it
+// only matters once a per-game token is lost, long after this has landed.
+if (typeof fetch !== 'undefined') {
+  fetch(`${API_BASE}/api/device`, { method: 'POST' }).catch(() => { /* offline: name fallback */ });
+}
+
 const wsOrigin = () => {
   const base = API_BASE || (typeof location !== 'undefined' ? location.origin : '');
   return base.replace(/^http/, 'ws');

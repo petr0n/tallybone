@@ -175,6 +175,16 @@ function leaveGame() {
   safeDel('tb.active');
   goHomeKeepingSeat();
 }
+// Giving the seat up mid-game: the server takes the player out (the round stops
+// waiting on them; a manager's role passes on), then we leave like game over
+// does. The token is kept, so rejoining with the code puts them back in the same
+// seat with their total. Offline, the intent is dropped and the seat simply stays.
+function leaveTable() {
+  if (!confirm('Leave the table? The round stops waiting for you. Your scores so far stay, and the same code puts you back in.')) return;
+  net.send({ t: 'leave' });
+  leaveGame();
+}
+
 // Join a game: open the socket + take a seat. Routing to the lobby happens once
 // the server confirms our seat (routeNextSnapshot in the onState handler).
 function enterGame(code, name, { creator = false } = {}) {
@@ -240,6 +250,7 @@ function showLobby() {
     onStartRound: () => net.send({ t: 'startRound' }),
     onCopy: () => copyText(joinUrl(view().code)),
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
+    onLeave: leaveTable,
   }));
 }
 function showRound() {
@@ -251,6 +262,7 @@ function showRound() {
     onScan: () => { scanContext = 'ingame'; ensureScannerThen(() => navGo(showCapture)); },
     onWin: () => { net.send({ t: 'turnIn', total: 0 }); navGo(showStandings); },
     onScores: () => navGo(showStandings),
+    onLeave: leaveTable,
   }));
 }
 function showPickDouble() {
@@ -282,6 +294,7 @@ function showStandings() {
     onManager: () => navGo(showManager),
     onStartNext: () => navGo(showPickDouble),
     onDetail: () => navGo(showRoundDetail),
+    onLeave: leaveTable,
   }));
   play(before, rowsById());
 }

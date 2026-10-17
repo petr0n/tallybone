@@ -21,12 +21,26 @@ export function emptyGame(code) {
 const MANAGER_INTENTS = new Set(['startRound', 'pickDouble', 'removePlayer', 'reopenRound', 'callGame', 'runItBack', 'setScore']);
 const clampDouble = (d) => Math.max(0, Math.min(12, d | 0));
 const activePlayers = (g) => g.players.filter((p) => !p.removed);
+const allIn = (g) => activePlayers(g).every((x) => g.scores[x.id] && g.scores[x.id].turnedIn);
 
-// Reset per-round score fields for every seated player. resetTotals wipes the
-// running total (new game); otherwise totals accumulate across rounds.
+// Take a player out of the game — the manager removing them, or them leaving.
+// Their scores and history stay. If they ran the table, it passes to the first
+// player still seated; if the round was only waiting on them, it closes now.
+function removeSeat(g, id) {
+  const p = g.players.find((x) => x.id === id);
+  if (!p) return false;
+  p.removed = true;
+  if (g.managerId === id) g.managerId = (activePlayers(g)[0] || {}).id || null;
+  if (g.phase === 'round' && activePlayers(g).length && allIn(g)) g.phase = 'standings';
+  return true;
+}
+
+// Reset per-round score fields for every player. resetTotals wipes the running
+// total (new game); otherwise totals accumulate across rounds. Removed players
+// are included so one who rejoins later is not carrying a stale turn-in; one who
+// rejoins within the same round keeps theirs, since it is still this round's.
 function startScores(g, resetTotals) {
   for (const p of g.players) {
-    if (p.removed) continue;
     const prev = g.scores[p.id] || { total: 0 };
     g.scores[p.id] = { total: resetTotals ? 0 : prev.total, last: 0, turnedIn: false };
   }
@@ -102,7 +116,7 @@ export function applyIntent(game, intent, actorId) {
       s.total = s.total - s.last + pts;
       s.last = pts;
       s.turnedIn = true;
-      if (activePlayers(g).every((x) => g.scores[x.id] && g.scores[x.id].turnedIn)) g.phase = 'standings';
+      if (allIn(g)) g.phase = 'standings';
       return { game: g };
     }
     case 'turnIn': {
@@ -114,13 +128,16 @@ export function applyIntent(game, intent, actorId) {
       s.total = s.total - s.last + pts; // idempotent: re-turnIn corrects, never double-counts
       s.last = pts;
       s.turnedIn = true;
-      if (activePlayers(g).every((x) => g.scores[x.id] && g.scores[x.id].turnedIn)) g.phase = 'standings';
+      if (allIn(g)) g.phase = 'standings';
       return { game: g };
     }
     case 'removePlayer': {
-      const p = g.players.find((x) => x.id === intent.id);
-      if (!p) return { game, error: 'no_such_player' };
-      p.removed = true;
+      if (!removeSeat(g, intent.id)) return { game, error: 'no_such_player' };
+      return { game: g };
+    }
+    // A player giving up their own seat mid-game. Anyone may, for themselves only.
+    case 'leave': {
+      if (!removeSeat(g, actorId)) return { game, error: 'not_joined' };
       return { game: g };
     }
     case 'reopenRound': {

@@ -52,6 +52,11 @@ Phone (Vite app) ──WebSocket──▶ Cloudflare Worker ──▶ Durable Ob
 - **Worker (router).** Handles `GET /api/game/:code/ws` (WebSocket upgrade) and
   forwards to the DO for that code via `env.GAME.idFromName(code)` +
   `stub.fetch(request)`. The same code always resolves to the same object.
+  Also `POST /api/device`: mints/refreshes the `tb_dev` device-id cookie
+  (HttpOnly, server-set, 400 days, `Path=/api`). The DO reads it off the upgrade
+  request and reseats in order **token → device → name** (disconnected seats only
+  for name). A device maps to the LATEST seat it took in that game, so a shared
+  phone can still seat a second player by name.
 - **GameRoom Durable Object.** One instance per code. Responsibilities:
   1. Hold the canonical `game` object in memory.
   2. Persist `game` to `state.storage` on every mutation (survives eviction /
@@ -127,7 +132,8 @@ are marked *(mgr)*.
 | `startRound` *(mgr)* | — | `lobby → round`, round 1 on double-12. |
 | `pickDouble` *(mgr)* | `{ d }` | Set `currentDouble = d`, `roundNum += 1`, start the next round. |
 | `turnIn` | `{ total, tiles? }` | Record the calling player's round score (`tiles` optional, for future audit). |
-| `removePlayer` *(mgr)* | `{ id }` | Mark a player `removed`. |
+| `removePlayer` *(mgr)* | `{ id }` | Mark a player `removed`. Scores/history kept; a manager's role passes to the first seated player; a round waiting only on them closes. |
+| `leave` | — | The sender gives up their own seat — same effect as `removePlayer` on themselves. Rejoining by token or name restores the seat and total. |
 | `reopenRound` *(mgr)* | — | `standings → round`. |
 | `callGame` *(mgr)* | — | `→ over`. |
 | `runItBack` *(mgr)* | — | Reset scores/round for a new game, keep the roster; `→ lobby`. |

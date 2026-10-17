@@ -5,7 +5,7 @@ import { domino } from '../components/domino.js';
 import { html, el } from '../dom.js';
 import { handTotal } from '../scoring.js';
 import { enter, enterIfNew, isNew, reducedMotion } from '../motion.js';
-import { helpIcon } from '../components/ui.js';
+import { helpIcon, leaveLink } from '../components/ui.js';
 import { tallyMark } from '../brand.js';
 import { initials, seated, scoredPlayers, ranked, finalRanked, wonThisRound, roundsSoFar, usedDoubles, SEAT_TOKENS } from '../game-state.js';
 
@@ -37,7 +37,7 @@ function lightHeader(overline, title, onBack, onHelp) {
 }
 
 // 10 · Round
-export function renderRound({ game, onBack, onScan, onWin, onScores, onRules } = {}) {
+export function renderRound({ game, onBack, onScan, onWin, onScores, onRules, onLeave } = {}) {
   const dn = game.currentDouble;
   const root = html('<div class="screen screen--light"></div>');
   const header = lightHeader(`TABLE ${game.code}`, `ROUND ${game.roundNum}`, onBack, onRules);
@@ -68,6 +68,7 @@ export function renderRound({ game, onBack, onScan, onWin, onScores, onRules } =
       `<div style="display:inline-flex;align-items:center;gap:6px;background:${chipBg};border:2px solid ${chipBorder};border-radius:999px;padding:3px 10px 3px 4px;"><div style="width:17px;height:17px;border-radius:50%;background:${chipBorder};border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;color:${chipIconFg};font-size:10px;font-weight:800;">${done ? '✓' : '…'}</div><div style="font-weight:700;font-size:12px;color:${chipFg};">${done ? 'Turned in' : 'Counting'}</div></div></div>`));
   });
   body.appendChild(statusBlock);
+  if (onLeave) body.appendChild(leaveLink(onLeave));
   root.appendChild(body);
 
   const foot = html('<div style="flex:none;background:var(--bone);border-top:var(--ol-base) solid var(--ink);padding:16px 20px 30px;display:flex;flex-direction:column;gap:11px;"></div>');
@@ -218,7 +219,7 @@ function roundsTable(game, rows, dark) {
     `<table style="border-collapse:collapse;"><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table></div>`);
 }
 
-export function renderStandings({ game, canManage, onBack, onManager, onStartNext, onDetail, onRules } = {}) {
+export function renderStandings({ game, canManage, onBack, onManager, onStartNext, onDetail, onRules, onLeave } = {}) {
   const rows = ranked(game);
   const winOverlay = roundWinOverlay(game, rows);
   const pending = rows.filter((p) => p.total === null);
@@ -262,6 +263,7 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
   const detail = html('<div class="tb-press" style="cursor:pointer;background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;margin-top:4px;"><div style="display:flex;flex-direction:column;gap:2px;"><div style="font-weight:700;font-size:15px;">Round ' + game.roundNum + ' detail</div><div style="font-family:var(--font-mono);font-size:11.5px;color:var(--secondary-light-1);">See what everyone turned in</div></div><div style="font-family:var(--font-display);font-size:24px;">›</div></div>');
   detail.addEventListener('click', onDetail);
   body.appendChild(detail);
+  if (onLeave) body.appendChild(leaveLink(onLeave));
   root.appendChild(body);
 
   const foot = html('<div style="flex:none;background:var(--bone);border-top:var(--ol-base) solid var(--ink);padding:16px 20px 30px;display:flex;flex-direction:column;gap:10px;"></div>');

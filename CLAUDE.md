@@ -234,12 +234,15 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
 - `scanner/` — the shipped on-device scanner (ONNX Runtime Web: preprocess, decode,
   NMS, geometry) with its own tests; `src/scan.js` is the app's thin wrapper.
 - `server/` — the Cloudflare Worker + Durable Object:
-  - `server/index.js` — router; `GET /api/game/:code/ws` → the DO for that code.
+  - `server/index.js` — router; `GET /api/game/:code/ws` → the DO for that code;
+    `POST /api/device` sets the HttpOnly `tb_dev` device-id cookie (`src/net.js`
+    requests it at load).
   - `server/game-room.js` — the `GameRoom` DO: WebSocket hibernation, identity
-    minting, SQLite persistence, full-snapshot broadcast.
+    minting, seat reclaim (token → device cookie → name), SQLite persistence,
+    full-snapshot broadcast.
   - `server/reducer.js` — the pure `applyIntent` game logic (no Cloudflare imports,
     no I/O, no randomness — the DO mints IDs/tokens and passes them in).
-  - `server/reducer.test.js` — 19 vitest cases; `server/smoke.mjs` — 2-client smoke.
+  - `server/reducer.test.js` — 22 vitest cases; `server/smoke.mjs` — 2-client smoke.
 - `wrangler.jsonc` (root) — `GAME` DO binding, `v1` SQLite migration, SPA assets with
   `run_worker_first: ["/api/*"]`, and the `tallybone.com/*` route.
 - `.claude/hooks/js-check.sh` — Stop hook, syntax-checks changed JS/HTML.
@@ -260,7 +263,8 @@ guest who scans it would otherwise become manager. Without the flag, first joine
 wins), 
 `startRound`(mgr), `pickDouble{d}`(mgr), `turnIn{total}`, `setScore{id,total}`(mgr —
 enters/corrects a player's score for the round; a phone that cannot turn in would
-otherwise stall the round for everyone), `removePlayer{id}`(mgr),
+otherwise stall the round for everyone), `removePlayer{id}`(mgr), `leave` (a player gives up their own seat; same
+effect as being removed, and rejoining restores the seat and total),
 `reopenRound`(mgr), `callGame`(mgr), `runItBack`(mgr).
 DO→phone: `state{game}`, `you{playerId,token,role}`, `error{code}`.
 `game = { code, phase:'lobby'|'round'|'standings'|'over', roundNum, currentDouble,
