@@ -8,10 +8,14 @@
 // Game shape:
 //   { code, phase, roundNum, currentDouble, managerId,
 //     players: [{ id, name, connected, removed }],
-//     scores: { [id]: { total, last, turnedIn } } }   // total = running (LOW wins)
+//     scores: { [id]: { total, last, turnedIn } },     // total = running (LOW wins)
+//     history: [{ round, double, scores: { [id]: number|null } }] }  // closed rounds
+// `history` gets one entry per CLOSED round. null = did not turn in, which is not
+// the same as a 0 (went out). A player who joined later has no key for earlier
+// rounds. Snapshots persisted before it existed have no field: read `history || []`.
 
 export function emptyGame(code) {
-  return { code, phase: 'lobby', roundNum: 1, currentDouble: 12, managerId: null, players: [], scores: {} };
+  return { code, phase: 'lobby', roundNum: 1, currentDouble: 12, managerId: null, players: [], scores: {}, history: [] };
 }
 
 const MANAGER_INTENTS = new Set(['startRound', 'pickDouble', 'removePlayer', 'reopenRound', 'callGame', 'runItBack', 'setScore']);
@@ -26,6 +30,18 @@ function startScores(g, resetTotals) {
     const prev = g.scores[p.id] || { total: 0 };
     g.scores[p.id] = { total: resetTotals ? 0 : prev.total, last: 0, turnedIn: false };
   }
+}
+
+// Record the round that is closing, before startScores() wipes `last`. Called
+// where a round ends — pickDouble (next round) and callGame — and NOT on entering
+// standings, so reopenRound has nothing to undo.
+function closeRound(g) {
+  const scores = {};
+  for (const p of activePlayers(g)) {
+    const s = g.scores[p.id];
+    if (s) scores[p.id] = s.turnedIn ? s.last : null;
+  }
+  g.history = [...(g.history || []), { round: g.roundNum, double: g.currentDouble, scores }];
 }
 
 export function applyIntent(game, intent, actorId) {
@@ -66,6 +82,7 @@ export function applyIntent(game, intent, actorId) {
     }
     case 'pickDouble': {
       if (g.phase !== 'standings') return { game, error: 'bad_phase' };
+      closeRound(g);
       g.currentDouble = clampDouble(intent.d);
       g.roundNum += 1; g.phase = 'round';
       startScores(g, false);
@@ -113,12 +130,13 @@ export function applyIntent(game, intent, actorId) {
     }
     case 'callGame': {
       if (g.phase !== 'round' && g.phase !== 'standings') return { game, error: 'bad_phase' };
+      closeRound(g);
       g.phase = 'over';
       return { game: g };
     }
     case 'runItBack': {
       if (g.phase !== 'over') return { game, error: 'bad_phase' };
-      g.phase = 'lobby'; g.roundNum = 1; g.currentDouble = 12;
+      g.phase = 'lobby'; g.roundNum = 1; g.currentDouble = 12; g.history = [];
       startScores(g, true);
       return { game: g };
     }

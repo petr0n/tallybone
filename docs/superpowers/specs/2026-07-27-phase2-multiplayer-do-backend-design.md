@@ -88,7 +88,10 @@ game = {
   ],
   scores: {           // keyed by player id
     [id]: { total, last, turnedIn }    // total = running (LOW wins); last = this round; turnedIn per round
-  }
+  },
+  history: [          // one entry per CLOSED round (pickDouble / callGame); runItBack clears it
+    { round, double, scores: { [id]: number|null } }   // null = never turned in, not 0 (went out)
+  ]
 }
 ```
 

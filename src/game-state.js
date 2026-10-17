@@ -39,15 +39,42 @@ export function joinCodeFromUrl(search) {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 }
 
+// Every round so far, oldest first: { round, double, scores: { [id]: number|null } }.
+// Closed rounds come from the server's `history`; while a round is live (round or
+// standings) it is appended from `scores`, null until that player turns in.
+export function roundsSoFar(game) {
+  const rounds = [...(game.history || [])];
+  if (game.phase === 'round' || game.phase === 'standings') {
+    const scores = {};
+    for (const p of seated(game)) {
+      const s = game.scores[p.id];
+      if (s) scores[p.id] = s.turnedIn ? s.last : null;
+    }
+    rounds.push({ round: game.roundNum, double: game.currentDouble, scores });
+  }
+  return rounds;
+}
+
+// double -> the round it opened, for every double already played this game.
+export function usedDoubles(game) {
+  return new Map(roundsSoFar(game).map((r) => [r.double, r.round]));
+}
+
 // Round 1 opens on double-twelve. After that the manager CHOOSES the next
 // round's double (whatever double is in a player's hand). This is the suggested
-// default in the picker: one below the current (and back up to 1 after blank).
+// default in the picker: the next unplayed double stepping down, wrapping to the
+// top once the blank is reached. If every double is used, one below the current.
 export function suggestedNextDouble(game) {
+  const used = usedDoubles(game);
+  for (let i = 1; i <= 13; i++) {
+    const d = (game.currentDouble - i + 13) % 13;
+    if (!used.has(d)) return d;
+  }
   return game.currentDouble > 0 ? game.currentDouble - 1 : 1;
 }
 
 // Adapt a raw DO snapshot { code, phase, roundNum, currentDouble, managerId,
-// players:[{id,name,connected,removed}], scores:{[id]:{total,last,turnedIn}} }
+// players:[{id,name,connected,removed}], scores:{[id]:{total,last,turnedIn}}, history }
 // into the screen-facing shape (per-player manager/you flags; id-keyed scores).
 export function viewGame(snap, myId) {
   if (!snap) return null;
@@ -66,6 +93,7 @@ export function viewGame(snap, myId) {
       removed: !!p.removed,
     })),
     scores: snap.scores || {},
+    history: snap.history || [],
   };
 }
 

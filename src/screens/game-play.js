@@ -7,7 +7,7 @@ import { handTotal } from '../scoring.js';
 import { enter, enterIfNew, isNew, reducedMotion } from '../motion.js';
 import { helpIcon } from '../components/ui.js';
 import { tallyMark } from '../brand.js';
-import { initials, seated, scoredPlayers, ranked, finalRanked, wonThisRound, SEAT_TOKENS } from '../game-state.js';
+import { initials, seated, scoredPlayers, ranked, finalRanked, wonThisRound, roundsSoFar, usedDoubles, SEAT_TOKENS } from '../game-state.js';
 
 const NUM_WORD = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE'];
 
@@ -164,8 +164,8 @@ function roundWinOverlay(game, rows) {
 // six hardcoded fakes — and a live Turn in button that would overwrite their
 // real score. It showed nobody else's number and risked destroying your own.
 //
-// Only the CURRENT round can be shown: `scores[id].last` is overwritten when the
-// next round opens (see the score-history entry in docs/todo.md).
+// Only the CURRENT round is shown here; earlier rounds live in the round-by-round
+// grid on Standings and Game Over.
 export function renderRoundDetail({ game, onBack, onRules } = {}) {
   const root = html('<div class="screen screen--light"></div>');
   root.appendChild(lightHeader(`TABLE ${game.code}`, `ROUND ${game.roundNum} DETAIL`, onBack, onRules));
@@ -191,6 +191,31 @@ export function renderRoundDetail({ game, onBack, onRules } = {}) {
 
   root.appendChild(body);
   return root;
+}
+
+// Round-by-round grid: one column per round (headed by its double), one row per
+// player in the caller's order. "—" = never turned in (not the same as 0, went
+// out); blank = not at the table yet. Scrolls sideways inside its own card, so a
+// long game never widens the page.
+function roundsTable(game, rows, dark) {
+  const rounds = roundsSoFar(game);
+  const fg = dark ? 'var(--secondary-on-dark)' : 'var(--ink)';
+  const dim = dark ? 'var(--dismissed-text)' : 'var(--disabled-text)';
+  const cell = 'padding:6px 8px;text-align:center;white-space:nowrap;';
+  const head = rounds.map((r) =>
+    `<th style="${cell}font-weight:400;"><div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;color:${dim};">R${r.round}</div><div style="font-family:var(--font-mono);font-size:11px;color:${fg};">${r.double}/${r.double}</div></th>`).join('');
+  const body = rows.map((p) => '<tr>' +
+    `<td style="${cell}text-align:left;position:sticky;left:0;background:${dark ? 'linear-gradient(rgba(242,235,213,0.07),rgba(242,235,213,0.07)),var(--ink)' : 'var(--bone)'};font-weight:700;font-size:13px;color:${fg};">${initials(p.name)}</td>` +
+    rounds.map((r) => {
+      const v = r.scores[p.id];
+      if (v === undefined) return `<td style="${cell}"></td>`;
+      if (v === null) return `<td style="${cell}font-family:var(--font-display);font-size:17px;color:${dim};">—</td>`;
+      return `<td style="${cell}font-family:var(--font-display);font-size:17px;color:${v === 0 ? (dark ? 'var(--sky)' : 'var(--link)') : fg};">${v}</td>`;
+    }).join('') + '</tr>').join('');
+  return html(
+    `<div style="flex:none;overflow-x:auto;border-radius:14px;${dark ? 'background:rgba(242,235,213,0.07);' : 'background:var(--bone);border:var(--ol-base) solid var(--ink);'}padding:8px 6px;">` +
+    `<div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;color:${dark ? 'var(--secondary-on-dark)' : 'var(--secondary-light-1)'};padding:2px 8px 6px;position:sticky;left:0;">ROUND BY ROUND</div>` +
+    `<table style="border-collapse:collapse;"><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table></div>`);
 }
 
 export function renderStandings({ game, canManage, onBack, onManager, onStartNext, onDetail, onRules } = {}) {
@@ -230,6 +255,9 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
       `<div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;"><div style="font-weight:700;font-size:17px;">${p.you ? p.name + ' (you)' : p.name}</div><div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;color:${subFg};">${sub}</div></div>` +
       `<div style="font-family:var(--font-display);font-size:32px;line-height:0.9;color:${totalFg};">${p.total === null ? '—' : p.total}</div></div>`));
   });
+
+  // Round 1's numbers are already the totals; the grid earns its place from round 2.
+  if (game.roundNum > 1) body.appendChild(roundsTable(game, rows, false));
 
   const detail = html('<div class="tb-press" style="cursor:pointer;background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;margin-top:4px;"><div style="display:flex;flex-direction:column;gap:2px;"><div style="font-weight:700;font-size:15px;">Round ' + game.roundNum + ' detail</div><div style="font-family:var(--font-mono);font-size:11.5px;color:var(--secondary-light-1);">See what everyone turned in</div></div><div style="font-family:var(--font-display);font-size:24px;">›</div></div>');
   detail.addEventListener('click', onDetail);
@@ -378,6 +406,7 @@ export function renderOver({ game, canManage, onRunItBack, onHome, onRules } = {
     list.appendChild(html(
       `<div style="display:flex;align-items:center;gap:12px;background:${rowBg};border-radius:13px;padding:11px 14px;flex:none;"><div style="width:24px;flex:none;font-family:var(--font-display);font-size:19px;color:${rankFg};text-align:center;">${i + 1}</div><div style="width:38px;height:38px;flex:none;border-radius:50%;background:${p.token};border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:16px;color:var(--ink);">${initials(p.name)}</div><div style="flex:1;font-weight:700;font-size:16px;color:${nameFg};">${p.you ? p.name + ' (you)' : p.name}</div><div style="font-family:var(--font-display);font-size:28px;line-height:0.9;color:${nameFg};">${p.final}</div></div>`));
   });
+  if (roundsSoFar(game).length) list.appendChild(roundsTable(game, rows, true));
   root.appendChild(list);
 
   const foot = html('<div style="flex:none;padding:14px 20px 32px;display:flex;flex-direction:column;gap:11px;"></div>');
@@ -397,6 +426,7 @@ export function renderOver({ game, canManage, onRunItBack, onHome, onRules } = {
 // step-down but any 0–12 double can be picked (open on whatever's in a hand).
 export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules } = {}) {
   const nextRound = game.roundNum + 1;
+  const used = usedDoubles(game);
   let selected = suggested ?? 0;
 
   const root = html('<div class="screen screen--light"></div>');
@@ -423,6 +453,11 @@ export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules }
       cell.appendChild(domino({ a: d, b: d, size: 34 }));
       cell.appendChild(html(`<div style="font-family:var(--font-mono);font-size:11px;">${d} / ${d}</div>`));
       if (isSug) cell.appendChild(html('<div style="font-family:var(--font-mono);font-size:8.5px;letter-spacing:0.12em;color:var(--link);">SUGGESTED</div>'));
+      // Marked, not disabled: a game past 13 rounds legitimately reuses doubles.
+      else if (used.has(d)) {
+        cell.style.opacity = isSel ? '1' : '0.45';
+        cell.appendChild(html(`<div style="font-family:var(--font-mono);font-size:8.5px;letter-spacing:0.12em;color:var(--secondary-light-1);">PLAYED R${used.get(d)}</div>`));
+      }
       cell.addEventListener('click', () => { selected = d; refresh(); });
       return cell;
     }));

@@ -239,7 +239,7 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     minting, SQLite persistence, full-snapshot broadcast.
   - `server/reducer.js` — the pure `applyIntent` game logic (no Cloudflare imports,
     no I/O, no randomness — the DO mints IDs/tokens and passes them in).
-  - `server/reducer.test.js` — 13 vitest cases; `server/smoke.mjs` — 2-client smoke.
+  - `server/reducer.test.js` — 19 vitest cases; `server/smoke.mjs` — 2-client smoke.
 - `wrangler.jsonc` (root) — `GAME` DO binding, `v1` SQLite migration, SPA assets with
   `run_worker_first: ["/api/*"]`, and the `tallybone.com/*` route.
 - `.claude/hooks/js-check.sh` — Stop hook, syntax-checks changed JS/HTML.
@@ -264,7 +264,9 @@ otherwise stall the round for everyone), `removePlayer{id}`(mgr),
 `reopenRound`(mgr), `callGame`(mgr), `runItBack`(mgr).
 DO→phone: `state{game}`, `you{playerId,token,role}`, `error{code}`.
 `game = { code, phase:'lobby'|'round'|'standings'|'over', roundNum, currentDouble,
-managerId, players:[{id,name,connected,removed}], scores:{[id]:{total,last,turnedIn}} }`.
+managerId, players:[{id,name,connected,removed}], scores:{[id]:{total,last,turnedIn}},
+history:[{round,double,scores:{[id]:number|null}}] }` — `history` holds closed rounds
+(appended at `pickDouble`/`callGame`, cleared by `runItBack`); read it as `history || []`.
 
 **`main` is not the whole history — check other branches before assuming something
 doesn't exist**, in this repo and in `petr0n/domino-counter-app` (its "clean start"

@@ -172,6 +172,28 @@ describe('reducer', () => {
     expect(g.scores.a).toEqual({ total: 0, last: 0, turnedIn: false });
   });
 
+  // Each closed round keeps its double and what everyone turned in, so the
+  // table can see "what did I get in round 2" and which doubles are used.
+  it('history records each closed round: double, scores, missed turn-ins', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 0 }, 'a').game;   // went out
+    g = applyIntent(g, { t: 'turnIn', total: 14 }, 'b').game;
+    g = applyIntent(g, { t: 'reopenRound' }, 'a').game;        // reopen + reclose
+    g = applyIntent(g, { t: 'turnIn', total: 9 }, 'b').game;   // must not record twice
+    expect(g.history).toEqual([]);                             // standings: still open
+    g = applyIntent(g, { t: 'pickDouble', d: 7 }, 'a').game;
+    g = join(g, 'c', 'Late');                                  // no key for round 1
+    g = applyIntent(g, { t: 'turnIn', total: 3 }, 'a').game;   // b and c never turn in
+    g = applyIntent(g, { t: 'callGame' }, 'a').game;
+    expect(g.history).toEqual([
+      { round: 1, double: 12, scores: { a: 0, b: 9 } },
+      { round: 2, double: 7, scores: { a: 3, b: null, c: null } },
+    ]);
+    g = applyIntent(g, { t: 'runItBack' }, 'a').game;
+    expect(g.history).toEqual([]);
+  });
+
   it('does not mutate the input game', () => {
     const g0 = emptyGame('C');
     const g1 = join(g0, 'a', 'Rosa');

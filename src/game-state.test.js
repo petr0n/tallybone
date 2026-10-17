@@ -5,7 +5,7 @@
 // the copy-to-clipboard pill, and main.js's boot-time parser. If they ever
 // disagree, scanned links silently stop working, so pin the round trip here.
 import assert from 'node:assert';
-import { joinUrl, joinCodeFromUrl, JOIN_PARAM, mintCode, CODE_ALPHABET , wonThisRound } from './game-state.js';
+import { joinUrl, joinCodeFromUrl, JOIN_PARAM, mintCode, CODE_ALPHABET , wonThisRound, suggestedNextDouble, roundsSoFar } from './game-state.js';
 
 {
   // Under node there is no `location`, so config.js falls back to the prod base.
@@ -71,4 +71,24 @@ import { joinUrl, joinCodeFromUrl, JOIN_PARAM, mintCode, CODE_ALPHABET , wonThis
   assert.strictEqual(wonThisRound({ you: true, total: 40, last: 40 }),
     false, 'caught with the double blank is the opposite of winning');
   console.log('wonThisRound: only the player who turned in 0: PASS');
+}
+
+// --- rounds so far + the next double ------------------------------------------
+// Closed rounds come from history; the live round is appended from scores, and
+// the suggestion skips any double the table has already opened on.
+{
+  const g = {
+    phase: 'standings', roundNum: 3, currentDouble: 10,
+    players: [{ id: 'a' }, { id: 'b' }],
+    scores: { a: { last: 4, turnedIn: true }, b: { last: 0, turnedIn: false } },
+    history: [{ round: 1, double: 12, scores: { a: 0 } }, { round: 2, double: 9, scores: { a: 5, b: null } }],
+  };
+  assert.deepStrictEqual(roundsSoFar(g).map((r) => [r.double, r.scores]),
+    [[12, { a: 0 }], [9, { a: 5, b: null }], [10, { a: 4, b: null }]], 'live round appended');
+  assert.strictEqual(suggestedNextDouble(g), 8, 'steps past 9, already played');
+  assert.strictEqual(roundsSoFar({ ...g, phase: 'over' }).length, 2, 'over: history only');
+  assert.strictEqual(suggestedNextDouble({ ...g, currentDouble: 0, history: [] }), 12, 'wraps after the blank');
+  const all = Array.from({ length: 13 }, (_, d) => ({ round: d + 1, double: d, scores: {} }));
+  assert.strictEqual(suggestedNextDouble({ ...g, history: all }), 9, 'all used: one below current');
+  console.log('roundsSoFar + suggestedNextDouble: skips played doubles: PASS');
 }
