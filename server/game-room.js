@@ -7,7 +7,6 @@
 // webSocketClose) so idle games are evicted from memory and don't accrue cost.
 import { DurableObject } from 'cloudflare:workers';
 import { emptyGame, applyIntent } from './reducer.js';
-import { dropEmptyRounds } from './repair.js';
 
 const CODE_RE = /\/api\/game\/([A-Za-z0-9]+)\/ws/;
 const send = (ws, obj) => { try { ws.send(JSON.stringify(obj)); } catch { /* socket gone */ } };
@@ -31,15 +30,6 @@ export class GameRoom extends DurableObject {
       this.game = (await ctx.storage.get('game')) || null;
       this.tokens = (await ctx.storage.get('tokens')) || {};
       this.devices = (await ctx.storage.get('devices')) || {};
-      // ONE-TIME repair of table 98QQH's phantom rounds (server/repair.js).
-      // Runs once, keeps the pre-repair game under 'backup-98QQH'. Remove with
-      // repair.js once it has run.
-      if (this.game && this.game.code === '98QQH' && !(await ctx.storage.get('repaired-98QQH'))) {
-        await ctx.storage.put('backup-98QQH', this.game);
-        this.game = dropEmptyRounds(this.game);
-        await ctx.storage.put('game', this.game);
-        await ctx.storage.put('repaired-98QQH', true);
-      }
     });
   }
 
