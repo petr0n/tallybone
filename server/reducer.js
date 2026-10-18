@@ -90,7 +90,9 @@ export function applyIntent(game, intent, actorId) {
     }
     case 'startRound': {
       if (g.phase !== 'lobby') return { game, error: 'bad_phase' };
-      g.phase = 'round'; g.roundNum = 1; g.currentDouble = 12;
+      // The manager picks the opening double like any other round's; 12 when
+      // none is sent (the usual opener, and what older clients assume).
+      g.phase = 'round'; g.roundNum = 1; g.currentDouble = intent.d == null ? 12 : clampDouble(intent.d);
       startScores(g, true);
       return { game: g };
     }

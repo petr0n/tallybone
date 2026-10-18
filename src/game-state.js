@@ -64,7 +64,9 @@ export function usedDoubles(game) {
 // round's double (whatever double is in a player's hand). This is the suggested
 // default in the picker: the next unplayed double stepping down, wrapping to the
 // top once the blank is reached. If every double is used, one below the current.
+// Before round 1 (lobby) the usual opener is double-twelve.
 export function suggestedNextDouble(game) {
+  if (game.phase === 'lobby') return 12;
   const used = usedDoubles(game);
   for (let i = 1; i <= 13; i++) {
     const d = (game.currentDouble - i + 13) % 13;

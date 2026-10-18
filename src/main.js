@@ -247,7 +247,7 @@ function showLobby() {
     canManage: net.isManager(),
     onBack: goHomeKeepingSeat,
     onRules: () => navGo(showRules),
-    onStartRound: () => net.send({ t: 'startRound' }),
+    onStartRound: () => navGo(showPickDouble),
     onCopy: () => copyText(joinUrl(view().code)),
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
     onLeave: leaveTable,
@@ -271,7 +271,9 @@ function showPickDouble() {
     suggested: suggestedNextDouble(view()),
     onBack: navBack,
     onRules: () => navGo(showRules),
-    onConfirm: (d) => net.send({ t: 'pickDouble', d }), // phase -> round routes everyone
+    // From the Lobby this opens round 1; from Standings, the next round. Either
+    // way phase -> round routes everyone.
+    onConfirm: (d) => net.send(view().phase === 'lobby' ? { t: 'startRound', d } : { t: 'pickDouble', d }),
   }));
 }
 // Rows re-sort as scores land. Measure where each player's row IS, let the

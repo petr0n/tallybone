@@ -135,6 +135,14 @@ describe('reducer', () => {
     expect(g.scores.a).toMatchObject({ total: 10, last: 0, turnedIn: false });
   });
 
+  it('startRound opens on the double the manager picks (default 12)', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa');
+    expect(applyIntent(g, { t: 'startRound', d: 9 }, 'a').game.currentDouble).toBe(9);
+    expect(applyIntent(g, { t: 'startRound', d: 0 }, 'a').game.currentDouble).toBe(0);
+    expect(applyIntent(g, { t: 'startRound', d: 99 }, 'a').game.currentDouble).toBe(12);
+    expect(applyIntent(g, { t: 'startRound' }, 'a').game.currentDouble).toBe(12);
+  });
+
   it('pickDouble clamps to 0..12', () => {
     let g = emptyGame('C'); g = join(g, 'a', 'Rosa');
     g = applyIntent(g, { t: 'startRound' }, 'a').game;

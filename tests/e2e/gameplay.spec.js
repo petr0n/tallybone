@@ -207,3 +207,19 @@ test('the manager can enter a score for a player who cannot', async ({ browser }
   await rosa.context.close();
   await dee.context.close();
 });
+
+// Round 1 is not always double-twelve: the manager opens on the double the
+// table actually plays, and every phone shows it.
+test('the manager picks the double round 1 opens on', async ({ browser }) => {
+  const rosa = await newPhone(browser), dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await rosa.page.getByRole('button', { name: /Start round/ }).click();
+  await expect(rosa.page.getByText('SUGGESTED')).toBeVisible();            // on 12 / 12
+  await rosa.page.getByText('7 / 7', { exact: true }).click();
+  await rosa.page.getByRole('button', { name: 'Start round 1 on 7 / 7' }).click();
+  for (const ph of [rosa, dee]) {
+    await expect(ph.page.getByText('ROUND 1', { exact: true })).toBeVisible();
+    await expect(ph.page.getByText('DOUBLE SEVEN')).toBeVisible();
+  }
+});

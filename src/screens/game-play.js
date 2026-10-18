@@ -424,10 +424,12 @@ export function renderOver({ game, canManage, onRunItBack, onHome, onRules } = {
   return root;
 }
 
-// Choose-the-next-double picker (manager only). Pre-selects the suggested
-// step-down but any 0–12 double can be picked (open on whatever's in a hand).
+// Choose-the-double picker (manager only), for round 1 from the Lobby and every
+// round after from Standings. Pre-selects the suggestion but any 0–12 double can
+// be picked (open on whatever's in a hand).
 export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules } = {}) {
-  const nextRound = game.roundNum + 1;
+  const opening = game.phase === 'lobby';
+  const nextRound = opening ? 1 : game.roundNum + 1;
   const used = usedDoubles(game);
   let selected = suggested ?? 0;
 
@@ -436,7 +438,7 @@ export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules }
 
   const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:16px;"></div>');
   body.appendChild(html(
-    `<div style="font-size:14.5px;line-height:1.5;color:var(--secondary-light-2);">Usually you'd step down to <strong>${suggested} / ${suggested}</strong> — but open on whichever double someone's holding. Tap to pick.</div>`));
+    `<div style="font-size:14.5px;line-height:1.5;color:var(--secondary-light-2);">Usually you'd ${opening ? 'open on' : 'step down to'} <strong>${suggested} / ${suggested}</strong> — but open on whichever double someone's holding. Tap to pick.</div>`));
   const grid = html('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:12px;"></div>');
   body.appendChild(grid);
   root.appendChild(body);

@@ -43,8 +43,12 @@ export async function joinGame(page, code, name) {
   await seated(page);
 }
 
-export async function startRound(page) {
-  await page.getByRole('button', { name: /Start round/ }).click();
+// Manager in the Lobby: open the picker and start round 1 — on the pre-selected
+// double-twelve, or on `d` when given.
+export async function startRound(page, d) {
+  await page.getByRole('button', { name: /Start round/ }).click();          // Lobby -> picker
+  if (d != null) await page.getByText(`${d} / ${d}`, { exact: true }).click();
+  await page.getByRole('button', { name: /Start round 1 on/ }).click();     // picker -> confirm
 }
 
 // "I won this round" turns in 0 and moves the player to Standings.
