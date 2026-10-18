@@ -101,7 +101,8 @@ test('the rules cover the table rules players actually ask about', async ({ brow
   // Turn order, and that the app RECORDS the table's double rather than
   // deciding it — these two cards used to read as if they contradicted.
   await expect(page.getByText(/highest double/i).first()).toBeVisible();
-  await expect(page.getByText(/manager taps it into the app/i)).toBeVisible();
+  await expect(page.getByText(/round one included/i)).toBeVisible();      // every round's double is picked
+  await expect(page.getByText(/tracks the doubles played/i)).toBeVisible();
 
   // Markers: the stuck-turn penalty and what it exposes
   await expect(page.getByText(/WHEN YOU CAN.T PLAY/)).toBeVisible();

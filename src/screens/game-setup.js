@@ -90,10 +90,10 @@ export function renderRules({ onBack } = {}) {
   dealCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Whatever is left over is the <strong>boneyard</strong>. Whoever holds the <strong>highest double</strong> starts the game or the round, then play moves <strong>clockwise</strong>.</div>'));
   body.appendChild(dealCard);
 
-  const steps = ['The round opens on a starting double. Play it down and run your train.',
+  const steps = ['The manager picks the double the round opens on. Play it down and run your train.',
     'First player out of bones ends the round and taps <strong>I won this round</strong> — that\'s 0 points.',
     'Everyone else spreads their leftovers on the table and scans them. Tallybone counts the pips.',
-    'Totals land on the board. The manager starts the next round.'];
+    'Totals land on the board. The manager picks the next double and starts the next round.'];
   const roundCard = html('<div style="background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:16px;box-shadow:var(--shadow-raised);padding:18px;display:flex;flex-direction:column;gap:13px;"><div style="font-family:var(--font-display);font-size:21px;">A ROUND, START TO FINISH</div></div>');
   steps.forEach((s, i) => roundCard.appendChild(html(
     `<div style="display:flex;gap:12px;align-items:flex-start;"><div style="width:28px;height:28px;flex:none;border-radius:50%;background:var(--sky);border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:15px;">${i + 1}</div><div style="font-size:14.5px;line-height:1.5;padding-top:3px;">${s}</div></div>`)));
@@ -109,7 +109,7 @@ export function renderRules({ onBack } = {}) {
     if (idx < 3) walkRow.appendChild(html(`<div style="font-family:var(--font-display);font-size:22px;color:var(--disabled-text);">${idx < 2 ? '›' : '…'}</div>`));
   });
   walkCard.appendChild(walkRow);
-  walkCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Each round opens on the <strong>highest double</strong> someone is holding \u2014 usually double twelve for round one. The manager taps it into the app so every phone follows.</div>'));
+  walkCard.appendChild(html('<div style="font-size:14.5px;line-height:1.5;">Every round, round one included, opens on the <strong>highest double</strong> someone is holding \u2014 usually double twelve to start. The manager picks it in the app so every phone follows. Tallybone <strong>tracks the doubles played</strong>: used ones are marked in the picker and shown round by round on the scoreboard.</div>'));
   body.appendChild(walkCard);
 
   const dblCard = html('<div style="background:var(--bone);border:var(--ol-base) solid var(--ink);border-radius:16px;box-shadow:var(--shadow-raised);padding:18px;display:flex;flex-direction:column;gap:11px;"><div style="font-family:var(--font-display);font-size:21px;">PLAYING A DOUBLE</div></div>');

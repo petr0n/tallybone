@@ -165,10 +165,16 @@ already has uncommitted changes.
 
 **Game scoring (double-12, low total wins).** Each round a player either goes out
 (turns in `0`) or turns in the pip count left in their hand — the same `turnIn{total}`
-intent either way. Every round, round 1 included, opens on the double the manager
-picks (the picker pre-selects 12 for round 1; changed 2026-10-17 at the owner's
-instruction — round 1 used to be fixed at 12). Standings rank **ascending** by running total; players who
-haven't turned in this round sort last.
+intent either way.
+
+- **The opening double is chosen every round, round 1 included** — the manager
+  picks it (`startRound{d}` / `pickDouble{d}`); the picker pre-selects 12 for
+  round 1. Owner's rule since 2026-10-17; round 1 used to be fixed at 12.
+- **The doubles played are tracked.** Each closed round's double lives in
+  `history`; the picker marks used doubles ("PLAYED R3") and the suggestion skips
+  them; Standings and Game Over show them round by round.
+- Standings rank **ascending** by running total; players who haven't turned in
+  this round sort last.
 
 - **The double blank scores 40, not 0.** House rule: get caught holding the 0/0 at
   the end of a round and it costs 40. It is the one tile whose pip count lies, so
