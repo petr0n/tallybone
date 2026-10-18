@@ -18,7 +18,7 @@ export function emptyGame(code) {
   return { code, phase: 'lobby', roundNum: 1, currentDouble: 12, managerId: null, players: [], scores: {}, history: [] };
 }
 
-const MANAGER_INTENTS = new Set(['startRound', 'pickDouble', 'removePlayer', 'reopenRound', 'callGame', 'runItBack', 'setScore']);
+const MANAGER_INTENTS = new Set(['startRound', 'pickDouble', 'setDouble', 'removePlayer', 'reopenRound', 'callGame', 'runItBack', 'setScore']);
 const clampDouble = (d) => Math.max(0, Math.min(12, d | 0));
 const activePlayers = (g) => g.players.filter((p) => !p.removed);
 const allIn = (g) => activePlayers(g).every((x) => g.scores[x.id] && g.scores[x.id].turnedIn);
@@ -102,6 +102,14 @@ export function applyIntent(game, intent, actorId) {
       g.currentDouble = clampDouble(intent.d);
       g.roundNum += 1; g.phase = 'round';
       startScores(g, false);
+      return { game: g };
+    }
+    // Correct the double the CURRENT round opened on (a mis-tap, or a game that
+    // started before round 1 could be picked). Scores are untouched; the round's
+    // history entry, written when it closes, records the corrected double.
+    case 'setDouble': {
+      if (g.phase !== 'round' && g.phase !== 'standings') return { game, error: 'bad_phase' };
+      g.currentDouble = clampDouble(intent.d);
       return { game: g };
     }
     // The manager turns a score in ON BEHALF of a player. A phone that cannot

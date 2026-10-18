@@ -169,7 +169,8 @@ intent either way.
 
 - **The opening double is chosen every round, round 1 included** — the manager
   picks it (`startRound{d}` / `pickDouble{d}`); the picker pre-selects 12 for
-  round 1. Owner's rule since 2026-10-17; round 1 used to be fixed at 12.
+  round 1. A round already under way can be corrected from Manager controls
+  (`setDouble{d}`). Owner's rule since 2026-10-17; round 1 used to be fixed at 12.
 - **The doubles played are tracked.** Each closed round's double lives in
   `history`; the picker marks used doubles ("PLAYED R3") and the suggestion skips
   them; Standings and Game Over show them round by round.
@@ -249,7 +250,7 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     full-snapshot broadcast.
   - `server/reducer.js` — the pure `applyIntent` game logic (no Cloudflare imports,
     no I/O, no randomness — the DO mints IDs/tokens and passes them in).
-  - `server/reducer.test.js` — 23 vitest cases; `server/smoke.mjs` — 2-client smoke.
+  - `server/reducer.test.js` — 24 vitest cases; `server/smoke.mjs` — 2-client smoke.
 - `wrangler.jsonc` (root) — `GAME` DO binding, `v1` SQLite migration, SPA assets with
   `run_worker_first: ["/api/*"]`, and the `tallybone.com/*` route.
 - `.claude/hooks/js-check.sh` — Stop hook, syntax-checks changed JS/HTML.
@@ -268,7 +269,9 @@ that minted the code opening the table; it claims the game **in the lobby only**
 because the Create screen shows the QR before the creator has taken a seat and a
 guest who scans it would otherwise become manager. Without the flag, first joiner
 wins), 
-`startRound{d?}`(mgr — opens round 1 on `d`, default 12), `pickDouble{d}`(mgr), `turnIn{total}`, `setScore{id,total}`(mgr —
+`startRound{d?}`(mgr — opens round 1 on `d`, default 12), `pickDouble{d}`(mgr),
+`setDouble{d}`(mgr — corrects the CURRENT round's double, round/standings only;
+scores untouched), `turnIn{total}`, `setScore{id,total}`(mgr —
 enters/corrects a player's score for the round; a phone that cannot turn in would
 otherwise stall the round for everyone), `removePlayer{id}`(mgr), `leave` (a player gives up their own seat; same
 effect as being removed, and rejoining restores the seat and total),

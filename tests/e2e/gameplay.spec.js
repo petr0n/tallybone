@@ -223,3 +223,20 @@ test('the manager picks the double round 1 opens on', async ({ browser }) => {
     await expect(ph.page.getByText('DOUBLE SEVEN')).toBeVisible();
   }
 });
+
+// A game already under way on the wrong double: the manager corrects the
+// current round from their controls, mid-round, and every phone follows.
+test('the manager corrects the double of the round in progress', async ({ browser }) => {
+  const rosa = await newPhone(browser), dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);                                         // opened on 12
+  await rosa.page.getByText('Scores', { exact: true }).click();         // Round -> Standings
+  await rosa.page.getByText('⚙').click();                              // -> Manager
+  await rosa.page.getByRole('button', { name: /Change round 1's double/ }).click();
+  await rosa.page.getByText('6 / 6', { exact: true }).click();
+  await rosa.page.getByRole('button', { name: 'Round 1 opened on 6 / 6' }).click();
+  await expect(rosa.page.getByRole('button', { name: /Change round 1's double \(6 \/ 6\)/ })).toBeVisible();
+  await expect(dee.page.getByText('DOUBLE SIX')).toBeVisible();
+  await expect(dee.page.getByText('ROUND 1', { exact: true })).toBeVisible();
+});

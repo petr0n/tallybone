@@ -324,7 +324,7 @@ export function renderFixScore({ game, player, onBack, onSave, onRules } = {}) {
   return root;
 }
 
-export function renderManager({ game, onBack, onStartNext, onReopen, onRemove, onCallGame, onFixScore, onRules } = {}) {
+export function renderManager({ game, onBack, onStartNext, onReopen, onChangeDouble, onRemove, onCallGame, onFixScore, onRules } = {}) {
   const root = html('<div class="screen screen--light"></div>');
   root.appendChild(darkHeader('ONLY YOU SEE THIS', 'MANAGER CONTROLS', onBack, onRules));
   const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:20px;"></div>');
@@ -334,7 +334,9 @@ export function renderManager({ game, onBack, onStartNext, onReopen, onRemove, o
   startNext.addEventListener('click', onStartNext);
   const reopen = html(`<button type="button" class="tb-btn tb-btn--secondary tb-press" style="height:52px;font-size:16px;">Reopen round ${game.roundNum}</button>`);
   reopen.addEventListener('click', onReopen);
-  roundSec.append(startNext, reopen);
+  const changeDbl = html(`<button type="button" class="tb-btn tb-btn--secondary tb-press" style="height:52px;font-size:16px;">Change round ${game.roundNum}'s double (${game.currentDouble} / ${game.currentDouble})</button>`);
+  changeDbl.addEventListener('click', onChangeDouble);
+  roundSec.append(startNext, reopen, changeDbl);
   roundSec.appendChild(html('<div style="font-size:13.5px;line-height:1.45;color:var(--secondary-light-2);">Reopening lets anyone re-scan and replace what they turned in.</div>'));
   body.appendChild(roundSec);
 
@@ -427,10 +429,12 @@ export function renderOver({ game, canManage, onRunItBack, onHome, onRules } = {
 // Choose-the-double picker (manager only), for round 1 from the Lobby and every
 // round after from Standings. Pre-selects the suggestion but any 0–12 double can
 // be picked (open on whatever's in a hand).
-export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules } = {}) {
-  const opening = game.phase === 'lobby';
-  const nextRound = opening ? 1 : game.roundNum + 1;
-  const used = usedDoubles(game);
+// `change`: the manager is correcting the CURRENT round's double instead of
+// starting one; only closed rounds count as used then, not this one.
+export function renderPickDouble({ game, suggested, change, onBack, onConfirm, onRules } = {}) {
+  const opening = !change && game.phase === 'lobby';
+  const nextRound = change ? game.roundNum : opening ? 1 : game.roundNum + 1;
+  const used = change ? new Map((game.history || []).map((r) => [r.double, r.round])) : usedDoubles(game);
   let selected = suggested ?? 0;
 
   const root = html('<div class="screen screen--light"></div>');
@@ -438,7 +442,9 @@ export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules }
 
   const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:16px;"></div>');
   body.appendChild(html(
-    `<div style="font-size:14.5px;line-height:1.5;color:var(--secondary-light-2);">Usually you'd ${opening ? 'open on' : 'step down to'} <strong>${suggested} / ${suggested}</strong> — but open on whichever double someone's holding. Tap to pick.</div>`));
+    `<div style="font-size:14.5px;line-height:1.5;color:var(--secondary-light-2);">${change
+      ? `Round ${nextRound} is set to <strong>${game.currentDouble} / ${game.currentDouble}</strong>. If the table opened on a different double, pick the one actually played. Scores are not affected.`
+      : `Usually you'd ${opening ? 'open on' : 'step down to'} <strong>${suggested} / ${suggested}</strong> — but open on whichever double someone's holding. Tap to pick.`}</div>`));
   const grid = html('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:12px;"></div>');
   body.appendChild(grid);
   root.appendChild(body);
@@ -456,7 +462,7 @@ export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules }
       cell.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border:${isSel ? 4 : 3}px solid ${isSel ? 'var(--sky)' : 'var(--ink)'};border-radius:14px;background:var(--bone);box-shadow:${isSel ? 'var(--shadow-raised)' : 'none'};cursor:pointer;`;
       cell.appendChild(domino({ a: d, b: d, size: 34 }));
       cell.appendChild(html(`<div style="font-family:var(--font-mono);font-size:11px;">${d} / ${d}</div>`));
-      if (isSug) cell.appendChild(html('<div style="font-family:var(--font-mono);font-size:8.5px;letter-spacing:0.12em;color:var(--link);">SUGGESTED</div>'));
+      if (isSug) cell.appendChild(html(`<div style="font-family:var(--font-mono);font-size:8.5px;letter-spacing:0.12em;color:var(--link);">${change ? 'NOW' : 'SUGGESTED'}</div>`));
       // Marked, not disabled: a game past 13 rounds legitimately reuses doubles.
       else if (used.has(d)) {
         cell.style.opacity = isSel ? '1' : '0.45';
@@ -465,7 +471,7 @@ export function renderPickDouble({ game, suggested, onBack, onConfirm, onRules }
       cell.addEventListener('click', () => { selected = d; refresh(); });
       return cell;
     }));
-    const btn = html(`<button type="button" class="tb-btn tb-btn--primary tb-press" style="height:58px;">Start round ${nextRound} on ${selected} / ${selected}</button>`);
+    const btn = html(`<button type="button" class="tb-btn tb-btn--primary tb-press" style="height:58px;">${change ? `Round ${nextRound} opened on` : `Start round ${nextRound} on`} ${selected} / ${selected}</button>`);
     btn.addEventListener('click', () => onConfirm(selected));
     btnSlot.replaceChildren(btn);
   }

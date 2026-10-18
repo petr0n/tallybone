@@ -143,6 +143,20 @@ describe('reducer', () => {
     expect(applyIntent(g, { t: 'startRound' }, 'a').game.currentDouble).toBe(12);
   });
 
+  it('setDouble corrects the current round only, and history records the fix', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
+    expect(applyIntent(g, { t: 'setDouble', d: 9 }, 'a').error).toBe('bad_phase');    // lobby
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;                               // on 12
+    g = applyIntent(g, { t: 'turnIn', total: 4 }, 'b').game;
+    expect(applyIntent(g, { t: 'setDouble', d: 9 }, 'b').error).toBe('not_manager');
+    g = applyIntent(g, { t: 'setDouble', d: 9 }, 'a').game;
+    expect(g).toMatchObject({ phase: 'round', roundNum: 1, currentDouble: 9 });
+    expect(g.scores.b).toEqual({ total: 4, last: 4, turnedIn: true });
+    g = applyIntent(g, { t: 'turnIn', total: 0 }, 'a').game;                         // -> standings
+    g = applyIntent(g, { t: 'pickDouble', d: 8 }, 'a').game;
+    expect(g.history[0].double).toBe(9);
+  });
+
   it('pickDouble clamps to 0..12', () => {
     let g = emptyGame('C'); g = join(g, 'a', 'Rosa');
     g = applyIntent(g, { t: 'startRound' }, 'a').game;

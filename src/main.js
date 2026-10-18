@@ -276,6 +276,18 @@ function showPickDouble() {
     onConfirm: (d) => net.send(view().phase === 'lobby' ? { t: 'startRound', d } : { t: 'pickDouble', d }),
   }));
 }
+// Manager correcting the double of the round in progress. Every phone's Round
+// screen repaints from the next snapshot; the manager returns to their controls.
+function showChangeDouble() {
+  mount(renderPickDouble({
+    game: view(),
+    change: true,
+    suggested: view().currentDouble,
+    onBack: navBack,
+    onRules: () => navGo(showRules),
+    onConfirm: (d) => { net.send({ t: 'setDouble', d }); navBack(); },
+  }));
+}
 // Rows re-sort as scores land. Measure where each player's row IS, let the
 // screen re-render, then hand the new nodes their old position so they travel
 // to the new one — otherwise the order changes silently under the reader.
@@ -330,6 +342,7 @@ function showManager() {
     onStartNext: () => navGo(showPickDouble),
     onRules: () => navGo(showRules),
     onReopen: () => net.send({ t: 'reopenRound' }),   // phase -> round routes everyone
+    onChangeDouble: () => navGo(showChangeDouble),
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
     onCallGame: () => net.send({ t: 'callGame' }),     // phase -> over routes everyone
     onFixScore: (id) => navGo(makeShowFixScore(id)),
