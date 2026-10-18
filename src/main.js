@@ -351,7 +351,7 @@ function showManager() {
     onChangeDouble: () => navGo(showChangeDouble),
     onUndoRound: () => {
       const g = view();
-      if (confirm(`Go back to round ${g.roundNum - 1}? Round ${g.roundNum} is dropped, along with anything turned in for it.`)) net.send({ t: 'undoRound' });
+      if (confirm(`Go back to round ${g.roundNum - 1}? Round ${g.roundNum} is dropped; anything turned in during it moves back to round ${g.roundNum - 1}.`)) net.send({ t: 'undoRound' });
     },
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
     onCallGame: () => net.send({ t: 'callGame' }),     // phase -> over routes everyone

@@ -252,7 +252,7 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     full-snapshot broadcast.
   - `server/reducer.js` — the pure `applyIntent` game logic (no Cloudflare imports,
     no I/O, no randomness — the DO mints IDs/tokens and passes them in).
-  - `server/reducer.test.js` — 27 vitest cases; `server/smoke.mjs` — 2-client smoke.
+  - `server/reducer.test.js` — 28 vitest cases; `server/smoke.mjs` — 2-client smoke.
 - `wrangler.jsonc` (root) — `GAME` DO binding, `v1` SQLite migration, SPA assets with
   `run_worker_first: ["/api/*"]`, and the `tallybone.com/*` route.
 - `.claude/hooks/js-check.sh` — Stop hook, syntax-checks changed JS/HTML.
@@ -274,7 +274,8 @@ wins),
 `startRound{d?}`(mgr — opens round 1 on `d`, default 12), `pickDouble{d,round}`(mgr —
 `round` = the round being closed; a mismatch is `stale_round`, so a repeated tap
 cannot start extra rounds; required mid-round), `undoRound`(mgr — back to the
-previous round as it closed: double + turn-ins; drops the current round's turn-ins),
+previous round on its double; turn-ins made in the dropped round carry back into
+it, a newer turn-in replacing an older one; totals unchanged except that swap),
 `setDouble{d}`(mgr — corrects the CURRENT round's double, round/standings only;
 scores untouched), `turnIn{total}`, `setScore{id,total}`(mgr —
 enters/corrects a player's score for the round; a phone that cannot turn in would

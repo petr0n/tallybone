@@ -177,24 +177,41 @@ describe('reducer', () => {
     expect(again.game.roundNum).toBe(2);
   });
 
-  it('undoRound restores the previous round, its double and its turn-ins', () => {
+  // Table 98QQH, as found on the server: round 3 had only GooseGossage's 82,
+  // then three phantom starts, and the other three turned in during "round 7".
+  it('undoRound carries turn-ins back: phantom rounds collapse into the real one', () => {
+    let g = emptyGame('C');
+    for (const [id, n] of [['sp', 'saltypete'], ['sd', 'Salty Dog'], ['go', 'GooseGossage'], ['mc', 'Mc']]) g = join(g, id, n);
+    const all = (pts) => { for (const [id, v] of Object.entries(pts)) g = applyIntent(g, { t: 'turnIn', total: v }, id).game; };
+    g = applyIntent(g, { t: 'startRound' }, 'sp').game;
+    all({ sp: 101, sd: 30, go: 0, mc: 93 });
+    g = applyIntent(g, { t: 'pickDouble', d: 12, round: 1 }, 'sp').game;
+    all({ sp: 61, sd: 15, go: 26, mc: 9 });
+    g = applyIntent(g, { t: 'pickDouble', d: 10, round: 2 }, 'sp').game;
+    all({ go: 82 });
+    for (const r of [3, 4, 5, 6]) g = applyIntent(g, { t: 'pickDouble', d: r === 6 ? 9 : 10, round: r }, 'sp').game;
+    all({ sp: 84, sd: 35, mc: 37 });                                    // into "round 7"
+    expect(g.roundNum).toBe(7);
+    for (let i = 0; i < 4; i++) g = applyIntent(g, { t: 'undoRound' }, 'sp').game;
+    expect(g).toMatchObject({ phase: 'standings', roundNum: 3, currentDouble: 10 });
+    expect(g.history.map((h) => h.round)).toEqual([1, 2]);
+    expect(g.scores).toEqual({
+      sp: { total: 246, last: 84, turnedIn: true }, sd: { total: 80, last: 35, turnedIn: true },
+      go: { total: 108, last: 82, turnedIn: true }, mc: { total: 139, last: 37, turnedIn: true },
+    });
+    expect(applyIntent(g, { t: 'undoRound' }, 'mc').error).toBe('not_manager');
+  });
+
+  it('undoRound: a newer turn-in replaces the older one, counted once', () => {
     let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
     g = applyIntent(g, { t: 'startRound' }, 'a').game;
-    g = applyIntent(g, { t: 'turnIn', total: 20 }, 'a').game;
-    g = applyIntent(g, { t: 'turnIn', total: 30 }, 'b').game;          // round 1 done
-    g = applyIntent(g, { t: 'pickDouble', d: 10, round: 1 }, 'a').game;
-    g = applyIntent(g, { t: 'turnIn', total: 82 }, 'b').game;          // round 2: only Dee
-    g = applyIntent(g, { t: 'pickDouble', d: 10, round: 2 }, 'a').game; // phantom
-    g = applyIntent(g, { t: 'turnIn', total: 5 }, 'a').game;           // into the phantom
-    expect(applyIntent(g, { t: 'undoRound' }, 'b').error).toBe('not_manager');
+    g = applyIntent(g, { t: 'turnIn', total: 20 }, 'b').game;          // round 1: Dee 20
+    g = applyIntent(g, { t: 'pickDouble', d: 11, round: 1 }, 'a').game; // mistaken start
+    g = applyIntent(g, { t: 'turnIn', total: 25 }, 'b').game;          // Dee re-counts: 25
     g = applyIntent(g, { t: 'undoRound' }, 'a').game;
-    expect(g).toMatchObject({ phase: 'round', roundNum: 2, currentDouble: 10 });
-    expect(g.scores.a).toEqual({ total: 20, last: 0, turnedIn: false });  // the 5 is gone
-    expect(g.scores.b).toEqual({ total: 112, last: 82, turnedIn: true });
-    expect(g.history).toHaveLength(1);
-    g = applyIntent(g, { t: 'undoRound' }, 'a').game;                   // all were in -> standings
-    expect(g).toMatchObject({ phase: 'standings', roundNum: 1, currentDouble: 12 });
-    expect(g.scores.b).toEqual({ total: 30, last: 30, turnedIn: true });
+    expect(g).toMatchObject({ phase: 'round', roundNum: 1, currentDouble: 12 });
+    expect(g.scores.b).toEqual({ total: 25, last: 25, turnedIn: true });
+    expect(g.scores.a).toEqual({ total: 0, last: 0, turnedIn: false });
     expect(applyIntent(g, { t: 'undoRound' }, 'a').error).toBe('nothing_to_undo');
   });
 

@@ -114,9 +114,12 @@ export function applyIntent(game, intent, actorId) {
       startScores(g, false);
       return { game: g };
     }
-    // Undo the last round start: back to the previous round exactly as it was
-    // closed — its double, and who had turned in what. Anything turned in for
-    // the round being dropped is taken back out of the totals.
+    // Undo the last round start: back to the previous round, on its double.
+    // Turn-ins made in the dropped round carry back into it — after a mistaken
+    // start, players turning in are scoring the round they are actually
+    // playing (a live table had three of four real scores land in a phantom
+    // round). A player with a turn-in in both keeps the newer one; totals count
+    // each player's round once.
     case 'undoRound': {
       if (g.phase !== 'round' && g.phase !== 'standings') return { game, error: 'bad_phase' };
       const prev = (g.history || [])[(g.history || []).length - 1];
@@ -124,7 +127,8 @@ export function applyIntent(game, intent, actorId) {
       g.history = g.history.slice(0, -1);
       for (const [id, s] of Object.entries(g.scores)) {
         const v = prev.scores[id];
-        g.scores[id] = { total: s.total - (s.turnedIn ? s.last : 0), last: v ?? 0, turnedIn: v != null };
+        if (s.turnedIn) g.scores[id] = { total: s.total - (v ?? 0), last: s.last, turnedIn: true };
+        else g.scores[id] = { total: s.total, last: v ?? 0, turnedIn: v != null };
       }
       g.roundNum = prev.round; g.currentDouble = prev.double;
       g.phase = activePlayers(g).length && allIn(g) ? 'standings' : 'round';
