@@ -131,7 +131,7 @@ are marked *(mgr)*.
 | `join` | `{ name, creator? }` | Take a lobby seat. DO mints `playerId` + `token`, replies `you`, broadcasts `state`. `creator: true` (the phone that minted the code, tapping "Open the table") claims `managerId` **while the game is in the lobby**; otherwise the first joiner of a fresh code becomes `managerId`. The flag exists because the Create screen shows the code and QR *before* the creator has taken a seat, so a guest who scans it arrives first and would otherwise own the game — observed at a real table, 2026-07-31. Client-asserted, which suits the casual/friends tier where the 5-char code is already the only gate. |
 | `startRound` *(mgr)* | `{ d? }` | `lobby → round`, round 1 on double `d` (default 12; the client picker pre-selects 12). |
 | `setDouble` *(mgr)* | `{ d }` | In `round`/`standings`: correct the current round's double (0..12). Scores untouched; the history entry written at close records it. |
-| `pickDouble` *(mgr)* | `{ d }` | Set `currentDouble = d`, `roundNum += 1`, start the next round. |
+| `pickDouble` *(mgr)* | `{ d }` | From `standings` or a live `round`: close the round (anyone not turned in → null), set `currentDouble = d`, `roundNum += 1`, start the next. |
 | `turnIn` | `{ total, tiles? }` | Record the calling player's round score (`tiles` optional, for future audit). |
 | `removePlayer` *(mgr)* | `{ id }` | Mark a player `removed`. Scores/history kept; a manager's role passes to the first seated player; a round waiting only on them closes. |
 | `leave` | — | The sender gives up their own seat — same effect as `removePlayer` on themselves. Rejoining by token or name restores the seat and total. |

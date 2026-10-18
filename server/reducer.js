@@ -96,8 +96,11 @@ export function applyIntent(game, intent, actorId) {
       startScores(g, true);
       return { game: g };
     }
+    // From standings, or straight from a live round: Standings tells the manager
+    // "you can start anyway" while players are still counting. Anyone who never
+    // turned in is recorded as null for the closed round.
     case 'pickDouble': {
-      if (g.phase !== 'standings') return { game, error: 'bad_phase' };
+      if (g.phase !== 'standings' && g.phase !== 'round') return { game, error: 'bad_phase' };
       closeRound(g);
       g.currentDouble = clampDouble(intent.d);
       g.roundNum += 1; g.phase = 'round';

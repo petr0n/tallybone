@@ -157,6 +157,15 @@ describe('reducer', () => {
     expect(g.history[0].double).toBe(9);
   });
 
+  it('pickDouble can start the next round while players are still counting', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 6 }, 'a').game;           // Dee never turns in
+    g = applyIntent(g, { t: 'pickDouble', d: 11 }, 'a').game;
+    expect(g).toMatchObject({ phase: 'round', roundNum: 2, currentDouble: 11 });
+    expect(g.history[0].scores).toEqual({ a: 6, b: null });
+  });
+
   it('pickDouble clamps to 0..12', () => {
     let g = emptyGame('C'); g = join(g, 'a', 'Rosa');
     g = applyIntent(g, { t: 'startRound' }, 'a').game;

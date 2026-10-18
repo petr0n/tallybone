@@ -240,3 +240,24 @@ test('the manager corrects the double of the round in progress', async ({ browse
   await expect(dee.page.getByText('DOUBLE SIX')).toBeVisible();
   await expect(dee.page.getByText('ROUND 1', { exact: true })).toBeVisible();
 });
+
+// Mid-round, "Scores" must still show the board: running totals so far, not a
+// dash per player. And "you can start anyway" must actually start the next
+// round with players still counting, pulling every phone onto it.
+test('mid-round standings show totals, and the next round can start anyway', async ({ browser }) => {
+  const rosa = await newPhone(browser), dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+  await winRound(rosa.page); await winRound(dee.page);                  // round 1: both 0
+  await pickNextDouble(rosa.page);                                      // round 2 under way
+  await expect(dee.page.getByText('ROUND 2', { exact: true })).toBeVisible();
+  await rosa.page.getByText('Scores', { exact: true }).click();
+  await expect(rosa.page.getByText(/ROUND 2 IN PLAY/)).toBeVisible();
+  const rows = rosa.page.locator('[data-pid]');
+  await expect(rows).toHaveCount(2);
+  for (const row of await rows.all()) await expect(row).toContainText(/\d+$/); // a total, not "—"
+  await rosa.page.getByRole('button', { name: /Start round 3$/ }).click();
+  await rosa.page.getByRole('button', { name: /Start round 3 on/ }).click();
+  for (const ph of [rosa, dee]) await expect(ph.page.getByText('ROUND 3', { exact: true })).toBeVisible();
+});

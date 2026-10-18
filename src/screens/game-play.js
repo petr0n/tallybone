@@ -224,7 +224,7 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
   const winOverlay = roundWinOverlay(game, rows);
   const pending = rows.filter((p) => p.total === null);
   const root = html('<div class="screen screen--light"></div>');
-  const header = lightHeader(`TABLE ${game.code} · AFTER ROUND ${game.roundNum}`, 'STANDINGS', onBack, onRules);
+  const header = lightHeader(`TABLE ${game.code} · ${game.phase === 'round' ? `ROUND ${game.roundNum} IN PLAY` : `AFTER ROUND ${game.roundNum}`}`, 'STANDINGS', onBack, onRules);
   if (canManage) {
     const gear = html('<div class="tb-press" style="cursor:pointer;width:44px;height:44px;flex:none;border:2.5px solid var(--ink);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-weight:800;font-size:20px;line-height:1;">⚙</div>');
     gear.addEventListener('click', onManager);
@@ -247,6 +247,10 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
     const sub = leader ? '★ LOWEST — LEADING' : (p.total === null ? 'STILL SCANNING…' : `+${p.last} LAST ROUND`);
     const subFg = leader ? 'var(--link)' : 'var(--secondary-light-1)';
     const totalFg = p.total === null ? 'var(--disabled-text)' : 'var(--ink)';
+    // Still counting this round: show the running total so far, greyed, rather
+    // than a dash — mid-round that was hiding every score on the board. Round 1
+    // has no total yet, so it stays a dash.
+    const shown = p.total !== null ? p.total : (game.roundNum > 1 ? p.final : '—');
     body.appendChild(html(
       // data-pid lets main.js match this row to its previous position and FLIP
       // it, so a re-sort reads as movement rather than a silent jump.
@@ -254,7 +258,7 @@ export function renderStandings({ game, canManage, onBack, onManager, onStartNex
       `<div style="width:26px;flex:none;font-family:var(--font-display);font-size:20px;color:${rankFg};text-align:center;">${rank}</div>` +
       `<div style="width:44px;height:44px;flex:none;border-radius:50%;background:${p.token};border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:19px;">${initials(p.name)}</div>` +
       `<div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;"><div style="font-weight:700;font-size:17px;">${p.you ? p.name + ' (you)' : p.name}</div><div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;color:${subFg};">${sub}</div></div>` +
-      `<div style="font-family:var(--font-display);font-size:32px;line-height:0.9;color:${totalFg};">${p.total === null ? '—' : p.total}</div></div>`));
+      `<div style="font-family:var(--font-display);font-size:32px;line-height:0.9;color:${totalFg};">${shown}</div></div>`));
   });
 
   // Round 1's numbers are already the totals; the grid earns its place from round 2.

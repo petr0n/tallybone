@@ -48,7 +48,11 @@ let scanRunId = 0;          // bumped on nav/back to invalidate an in-flight sca
 
 // ---------- live multiplayer state ----------
 let snapshot = null;        // latest raw game snapshot from the DO
-let shownPhase = null;      // phase the UI is currently following
+// Phase + round the UI is currently following. The round number is part of it
+// because the manager can start the next round straight from a live one (phase
+// stays 'round'), and every phone still has to land on the new round.
+let shownStage = null;
+const stageOf = (g) => `${g.phase}:${g.roundNum}`;
 let routeNextSnapshot = false; // route to the phase's screen once we're seated
 let liveRepaint = null;     // re-render fn for the current live screen (else null)
 let createDraft = null;     // { code, managerName, copied } for the Create screen
@@ -66,16 +70,16 @@ net.onState((g) => {
     if (!net.whoami().playerId) return;        // wait until our seat is confirmed
     routeNextSnapshot = false;
     safeSet('tb.active', net.whoami().code);    // remember the game for reload-reconnect
-    shownPhase = g.phase;
+    shownStage = stageOf(g);
     navResetFromServer(PHASE_SCREEN[g.phase] || showHome);
     return;
   }
-  if (AUTO_NAV.has(g.phase) && g.phase !== shownPhase) {
-    shownPhase = g.phase;
+  if (AUTO_NAV.has(g.phase) && stageOf(g) !== shownStage) {
+    shownStage = stageOf(g);
     navResetFromServer(PHASE_SCREEN[g.phase]);
     return;
   }
-  shownPhase = g.phase;
+  shownStage = stageOf(g);
   if (liveRepaint) liveRepaint();
 });
 
@@ -166,7 +170,7 @@ function goHomeKeepingSeat() {
   net.disconnect();                 // stop following; others see us as away
   resetGroup('lobby');              // next table's seats animate in afresh
   safeSet('tb.away', '1');          // deliberate: don't hijack the next load
-  snapshot = null; shownPhase = null; routeNextSnapshot = false;
+  snapshot = null; shownStage = null; routeNextSnapshot = false;
   navReset(showHome);               // tb.active kept: the seat is still ours
 }
 

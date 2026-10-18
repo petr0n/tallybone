@@ -120,10 +120,11 @@ export function scoredPlayers(game) {
   });
 }
 
-// Standings ascending by total; players who haven't turned in sort last.
+// Standings ascending by total; players who haven't turned in sort last, and
+// among themselves by their running total so far.
 export function ranked(game) {
   return [...scoredPlayers(game)].sort(
-    (a, b) => (a.total === null) - (b.total === null) || (a.total - b.total));
+    (a, b) => (a.total === null) - (b.total === null) || (a.final - b.final));
 }
 
 export function finalRanked(game) {

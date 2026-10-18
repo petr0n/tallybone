@@ -175,7 +175,9 @@ intent either way.
   `history`; the picker marks used doubles ("PLAYED R3") and the suggestion skips
   them; Standings and Game Over show them round by round.
 - Standings rank **ascending** by running total; players who haven't turned in
-  this round sort last.
+  this round sort last (by running total among themselves) and show their total
+  so far, greyed. The manager may start the next round before everyone is in
+  (`pickDouble` from `round` or `standings`); missing turn-ins record as null.
 
 - **The double blank scores 40, not 0.** House rule: get caught holding the 0/0 at
   the end of a round and it costs 40. It is the one tile whose pip count lies, so
@@ -250,7 +252,7 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     full-snapshot broadcast.
   - `server/reducer.js` — the pure `applyIntent` game logic (no Cloudflare imports,
     no I/O, no randomness — the DO mints IDs/tokens and passes them in).
-  - `server/reducer.test.js` — 24 vitest cases; `server/smoke.mjs` — 2-client smoke.
+  - `server/reducer.test.js` — 25 vitest cases; `server/smoke.mjs` — 2-client smoke.
 - `wrangler.jsonc` (root) — `GAME` DO binding, `v1` SQLite migration, SPA assets with
   `run_worker_first: ["/api/*"]`, and the `tallybone.com/*` route.
 - `.claude/hooks/js-check.sh` — Stop hook, syntax-checks changed JS/HTML.
