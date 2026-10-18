@@ -234,8 +234,12 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     Every server-sending tap goes through `send()`/`lockTap()`, which locks the
     tapped button until the answer redraws the screen (6s fallback) — offline taps
     queue and replay on reconnect, so repeats must be impossible or harmless.
-  - `src/net.js` — the WebSocket client: connect/send/onState, auto-reconnect,
-    `{code,playerId,token}` persisted in `localStorage`.
+  - `src/net.js` — the WebSocket client: connect/send/onState/onStatus,
+    auto-reconnect, `{code,playerId,token}` persisted in `localStorage`.
+  - `src/status-banner.js` — the top bar: "Reconnecting…" while the socket is
+    down (taps queue), and "Tallybone was updated — tap to reload" when the live
+    `index.html` names a different bundle than this tab runs (checked by
+    `main.js` on reconnect and on return to foreground).
   - `src/game-state.js` — pure view helpers over a server snapshot (`viewGame`,
     ranking, initials, `mintCode`, `suggestedNextDouble`). No fixtures.
   - `src/config.js` — `API_BASE` (same-origin default) and `JOIN_URL_BASE`

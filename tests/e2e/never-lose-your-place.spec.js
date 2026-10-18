@@ -173,3 +173,34 @@ test('a server tap locks its button until the server answers', async ({ browser 
   await rosa.context.setOffline(false);                                 // answer lands
   for (const ph of [rosa, dee]) await expect(ph.page.getByText('GAME OVER')).toBeVisible({ timeout: 30000 });
 });
+
+// Tonight's root cause from the player's side: offline, taps looked like they did
+// nothing. The bar says what is going on, and leaves once the socket is back.
+test('a dropped connection shows the reconnecting bar until it is back', async ({ browser }) => {
+  const rosa = await newPhone(browser);
+  const dee = await phoneWithKillableSocket(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  const bar = dee.page.getByRole('status').filter({ hasText: 'Reconnecting' });
+  await expect(bar).toBeHidden();
+  await dee.context.setOffline(true);
+  await dee.page.evaluate(() => window.__sockets.at(-1).close());
+  await expect(bar).toBeVisible({ timeout: 10000 });
+  await dee.context.setOffline(false);
+  await expect(bar).toBeHidden({ timeout: 30000 });
+});
+
+// A tab left open across a deploy runs the OLD app against the new server — the
+// manager's phone did, the night of 98QQH. It must offer a reload.
+test('a tab running an old build is told to reload', async ({ browser }) => {
+  const { page } = await newPhone(browser);
+  await page.route('**/assets/index-OLD.js', (route) => route.fulfill({ contentType: 'text/javascript', body: '' }));
+  await page.evaluate(() => {                     // pretend this tab loaded build OLD
+    const s = document.createElement('script'); s.src = '/assets/index-OLD.js'; document.head.appendChild(s);
+  });
+  await page.route((url) => url.pathname === '/', (route) => route.fulfill({
+    contentType: 'text/html', body: '<script type="module" src="/assets/index-NEW.js"></script>',
+  }));
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(page.getByRole('status').filter({ hasText: 'Tallybone was updated' })).toBeVisible();
+});

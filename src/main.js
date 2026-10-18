@@ -24,6 +24,7 @@ import { brandLockup } from './brand.js';
 import { html } from './dom.js';
 import { isIOS, isIOSNonSafari } from './platform.js';
 import * as net from './net.js';
+import { setOffline, setUpdated } from './status-banner.js';
 import { measure, play, enter, resetGroup, reducedMotion } from './motion.js';
 import { scanEvent, postScanLog } from './scanlog.js';
 
@@ -188,6 +189,24 @@ function leaveTable() {
   send({ t: 'leave' });
   leaveGame();
 }
+
+// Is a newer build live than the one this tab runs? The deployed index.html
+// names its bundle (/assets/index-<hash>.js) and is served no-store, so compare
+// it with ours. Checked on every reconnect — a deploy restarts the game server,
+// which drops and re-opens every socket — and whenever the app comes back to
+// the foreground. In dev there is no hashed bundle, so it never fires.
+const BUNDLE_RE = /\/assets\/index-[\w-]+\.js/;
+async function checkForUpdate() {
+  const mine = (document.querySelector('script[src*="/assets/index-"]') || {}).src || '';
+  const ours = (mine.match(BUNDLE_RE) || [])[0];
+  if (!ours) return;
+  try {
+    const live = ((await (await fetch('/', { cache: 'no-store' })).text()).match(BUNDLE_RE) || [])[0];
+    if (live && live !== ours) setUpdated();
+  } catch { /* offline: try again next time */ }
+}
+net.onStatus((s) => { setOffline(s === 'offline'); if (s === 'online') checkForUpdate(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
 
 // Every tap that talks to the server locks the button it came from. On a slow
 // connection a tap looks like it did nothing, so people tap again — and repeats

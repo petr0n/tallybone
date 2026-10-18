@@ -34,6 +34,10 @@ let closedByUs = false;
 let joinSent = false;   // per connection: did WE already take a seat on this socket?
 const stateSubs = new Set();
 const errorSubs = new Set();
+// Connection status for the UI: 'online', 'offline' (dropped, reconnecting —
+// taps queue in `outbox` meanwhile) or 'idle' (not in a game).
+const statusSubs = new Set();
+const setStatus = (s) => statusSubs.forEach((cb) => cb(s));
 
 function loadIdentity(c) {
   try { return JSON.parse(localStorage.getItem(idKey(c))) || {}; } catch { return {}; }
@@ -66,6 +70,7 @@ function open() {
   socket = new WebSocket(`${wsOrigin()}/api/game/${code}/ws`);
   socket.addEventListener('open', () => {
     reconnectDelay = 500;
+    setStatus('online');
     joinSent = false;   // fresh socket: nothing claimed on it yet
     socket.send(JSON.stringify({ t: 'hello', playerId: identity.playerId, token: identity.token }));
     // Flush before any reply can land, so a queued join is counted as ours and
@@ -94,6 +99,7 @@ function open() {
   });
   socket.addEventListener('close', () => {
     if (closedByUs) return;
+    setStatus('offline');
     setTimeout(open, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 2, 8000);
   });
@@ -146,8 +152,11 @@ export function isManager() {
   return identity.role === 'manager';
 }
 
+export function onStatus(cb) { statusSubs.add(cb); return () => statusSubs.delete(cb); }
+
 export function disconnect() {
   closedByUs = true;
+  setStatus('idle');
   if (socket) { try { socket.close(); } catch { /* noop */ } }
   socket = null;
   outbox = [];
