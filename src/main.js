@@ -185,13 +185,30 @@ function leaveGame() {
 // seat with their total. Offline, the intent is dropped and the seat simply stays.
 function leaveTable() {
   if (!confirm('Leave the table? The round stops waiting for you. Your scores so far stay, and the same code puts you back in.')) return;
-  net.send({ t: 'leave' });
+  send({ t: 'leave' });
   leaveGame();
 }
+
+// Every tap that talks to the server locks the button it came from. On a slow
+// connection a tap looks like it did nothing, so people tap again — and repeats
+// are how a real table got four phantom rounds. The server's answer redraws the
+// screen with fresh, unlocked buttons; if none comes, it unlocks after 6s.
+// Taps that stay on the phone (pip steppers etc.) never come through here.
+let lastTap = null;
+document.addEventListener('click', (e) => { lastTap = e.target.closest ? e.target.closest('button, .tb-press') : null; }, true);
+function lockTap() {
+  const el = lastTap; lastTap = null;
+  if (!el || !el.isConnected) return;
+  const set = (on) => { el.disabled = on; el.style.pointerEvents = on ? 'none' : ''; el.style.opacity = on ? '0.55' : ''; };
+  set(true);
+  setTimeout(() => { if (el.isConnected) set(false); }, 6000);
+}
+function send(intent) { lockTap(); net.send(intent); }
 
 // Join a game: open the socket + take a seat. Routing to the lobby happens once
 // the server confirms our seat (routeNextSnapshot in the onState handler).
 function enterGame(code, name, { creator = false } = {}) {
+  lockTap();
   safeDel('tb.away');
   net.connect(code);
   // `creator` = this phone minted the code and is opening the table. The Create
@@ -253,7 +270,7 @@ function showLobby() {
     onRules: () => navGo(showRules),
     onStartRound: () => navGo(showPickDouble),
     onCopy: () => copyText(joinUrl(view().code)),
-    onRemove: (id) => net.send({ t: 'removePlayer', id }),
+    onRemove: (id) => send({ t: 'removePlayer', id }),
     onLeave: leaveTable,
   }));
 }
@@ -264,7 +281,7 @@ function showRound() {
     onBack: goHomeKeepingSeat,
     onRules: () => navGo(showRules),
     onScan: () => { scanContext = 'ingame'; ensureScannerThen(() => navGo(showCapture)); },
-    onWin: () => { net.send({ t: 'turnIn', total: 0 }); navGo(showStandings); },
+    onWin: () => { send({ t: 'turnIn', total: 0 }); navGo(showStandings); },
     onScores: () => navGo(showStandings),
     onLeave: leaveTable,
   }));
@@ -279,7 +296,7 @@ function showPickDouble() {
     // way phase -> round routes everyone.
     // `round` = the round this picker closes, so a repeat is rejected by the
     // server instead of starting another round.
-    onConfirm: (d) => net.send(view().phase === 'lobby' ? { t: 'startRound', d } : { t: 'pickDouble', d, round: view().roundNum }),
+    onConfirm: (d) => send(view().phase === 'lobby' ? { t: 'startRound', d } : { t: 'pickDouble', d, round: view().roundNum }),
   }));
 }
 // Manager correcting the double of the round in progress. Every phone's Round
@@ -291,7 +308,7 @@ function showChangeDouble() {
     suggested: view().currentDouble,
     onBack: navBack,
     onRules: () => navGo(showRules),
-    onConfirm: (d) => { net.send({ t: 'setDouble', d }); navBack(); },
+    onConfirm: (d) => { send({ t: 'setDouble', d }); navBack(); },
   }));
 }
 // Rows re-sort as scores land. Measure where each player's row IS, let the
@@ -336,7 +353,7 @@ function makeShowFixScore(playerId) {
       player,
       onBack: navBack,
       onRules: () => navGo(showRules),
-      onSave: (total) => { net.send({ t: 'setScore', id: playerId, total }); navBack(); },
+      onSave: (total) => { send({ t: 'setScore', id: playerId, total }); navBack(); },
     }));
   };
 }
@@ -347,14 +364,14 @@ function showManager() {
     onBack: navBack,
     onStartNext: () => navGo(showPickDouble),
     onRules: () => navGo(showRules),
-    onReopen: () => net.send({ t: 'reopenRound' }),   // phase -> round routes everyone
+    onReopen: () => send({ t: 'reopenRound' }),   // phase -> round routes everyone
     onChangeDouble: () => navGo(showChangeDouble),
     onUndoRound: () => {
       const g = view();
-      if (confirm(`Go back to round ${g.roundNum - 1}? Round ${g.roundNum} is dropped; anything turned in during it moves back to round ${g.roundNum - 1}.`)) net.send({ t: 'undoRound' });
+      if (confirm(`Go back to round ${g.roundNum - 1}? Round ${g.roundNum} is dropped; anything turned in during it moves back to round ${g.roundNum - 1}.`)) send({ t: 'undoRound', round: g.roundNum });
     },
-    onRemove: (id) => net.send({ t: 'removePlayer', id }),
-    onCallGame: () => net.send({ t: 'callGame' }),     // phase -> over routes everyone
+    onRemove: (id) => send({ t: 'removePlayer', id }),
+    onCallGame: () => send({ t: 'callGame' }),     // phase -> over routes everyone
     onFixScore: (id) => navGo(makeShowFixScore(id)),
   }));
 }
@@ -364,7 +381,7 @@ function showOver() {
     game: view(),
     canManage: net.isManager(),
     onRules: () => navGo(showRules),
-    onRunItBack: () => net.send({ t: 'runItBack' }),   // phase -> lobby routes everyone
+    onRunItBack: () => send({ t: 'runItBack' }),   // phase -> lobby routes everyone
     onHome: leaveGame,
   }));
 }
@@ -375,7 +392,7 @@ function makeShowGameSubmit(tiles) {
       onBack: navBack,
       onChangeRead: () => { if (lastScan) navGo(makeShowReview(lastScan)); else navBack(); },
       onRules: () => navGo(showRules),
-    onTurnIn: (total) => { net.send({ t: 'turnIn', total }); navGo(showStandings); },
+    onTurnIn: (total) => { send({ t: 'turnIn', total }); navGo(showStandings); },
     }));
   };
 }

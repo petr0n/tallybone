@@ -12,7 +12,7 @@
 // the SOCKET dies. Recovery is net.js's reconnect + `hello`, then the remembered
 // name as a fallback. These tests exercise that real mechanism.
 import { test, expect } from '@playwright/test';
-import { newPhone, createGame, joinGame, startRound } from '../support/game.js';
+import { newPhone, createGame, joinGame, startRound, winRound } from '../support/game.js';
 
 const inRound = (page) => expect(page.getByText('DOUBLE TWELVE')).toBeVisible({ timeout: 30000 });
 const seatOf = (page, code) =>
@@ -123,4 +123,53 @@ test('a different phone gets the seat back from just the code and a name', async
 
   await rosa.context.close();
   await newDevice.context.close();
+});
+
+// The phantom-rounds bug from a real table (98QQH). Offline, a manager's taps
+// queue silently and nothing visibly happens, so they tap again — and on
+// reconnect every queued "start next round" arrived together, each starting a
+// round. Now each carries the round it closes: only the first can land.
+test('manager taps "start next round" repeatedly while offline: one round, not several', async ({ browser }) => {
+  const rosa = await phoneWithKillableSocket(browser);
+  const dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+  await winRound(rosa.page); await winRound(dee.page);                  // round 1 done
+
+  await rosa.context.setOffline(true);
+  await rosa.page.evaluate(() => window.__sockets.at(-1).close());
+  for (const d of ['10 / 10', '10 / 10', '9 / 9']) {                    // what 98QQH received
+    await rosa.page.getByRole('button', { name: /Start round 2$/ }).click();
+    await rosa.page.getByText(d, { exact: true }).click();
+    await rosa.page.getByRole('button', { name: /Start round 2 on/ }).click();
+    await rosa.page.locator('.screen').getByText('‹').first().click();  // nothing happened; back out
+  }
+  await rosa.context.setOffline(false);                                 // reconnect flushes the queue
+
+  for (const ph of [rosa, dee]) await expect(ph.page.getByText('ROUND 2', { exact: true })).toBeVisible({ timeout: 30000 });
+  await dee.page.waitForTimeout(1500);
+  await expect(dee.page.getByText('ROUND 3', { exact: true })).toHaveCount(0);
+  await expect(dee.page.getByText('DOUBLE TEN')).toBeVisible();          // the first tap won
+});
+
+// Slow server: a tap that talks to it locks its button until the answer redraws
+// the screen, so a second tap cannot send it twice.
+test('a server tap locks its button until the server answers', async ({ browser }) => {
+  const rosa = await phoneWithKillableSocket(browser);
+  const dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+  await rosa.page.getByText('Scores', { exact: true }).click();
+  await rosa.page.getByText('⚙').click();
+
+  await rosa.context.setOffline(true);                                  // the "slow" answer
+  await rosa.page.evaluate(() => window.__sockets.at(-1).close());
+  const callIt = rosa.page.getByRole('button', { name: /Call it/ });
+  await callIt.click();
+  await expect(callIt).toBeDisabled();
+
+  await rosa.context.setOffline(false);                                 // answer lands
+  for (const ph of [rosa, dee]) await expect(ph.page.getByText('GAME OVER')).toBeVisible({ timeout: 30000 });
 });

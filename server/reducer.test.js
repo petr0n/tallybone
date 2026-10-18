@@ -192,14 +192,15 @@ describe('reducer', () => {
     for (const r of [3, 4, 5, 6]) g = applyIntent(g, { t: 'pickDouble', d: r === 6 ? 9 : 10, round: r }, 'sp').game;
     all({ sp: 84, sd: 35, mc: 37 });                                    // into "round 7"
     expect(g.roundNum).toBe(7);
-    for (let i = 0; i < 4; i++) g = applyIntent(g, { t: 'undoRound' }, 'sp').game;
+    for (const r of [7, 6, 5, 4]) g = applyIntent(g, { t: 'undoRound', round: r }, 'sp').game;
     expect(g).toMatchObject({ phase: 'standings', roundNum: 3, currentDouble: 10 });
     expect(g.history.map((h) => h.round)).toEqual([1, 2]);
     expect(g.scores).toEqual({
       sp: { total: 246, last: 84, turnedIn: true }, sd: { total: 80, last: 35, turnedIn: true },
       go: { total: 108, last: 82, turnedIn: true }, mc: { total: 139, last: 37, turnedIn: true },
     });
-    expect(applyIntent(g, { t: 'undoRound' }, 'mc').error).toBe('not_manager');
+    expect(applyIntent(g, { t: 'undoRound', round: 3 }, 'mc').error).toBe('not_manager');
+    expect(applyIntent(g, { t: 'undoRound', round: 4 }, 'sp').error).toBe('stale_round'); // a queued repeat
   });
 
   it('undoRound: a newer turn-in replaces the older one, counted once', () => {
@@ -208,11 +209,12 @@ describe('reducer', () => {
     g = applyIntent(g, { t: 'turnIn', total: 20 }, 'b').game;          // round 1: Dee 20
     g = applyIntent(g, { t: 'pickDouble', d: 11, round: 1 }, 'a').game; // mistaken start
     g = applyIntent(g, { t: 'turnIn', total: 25 }, 'b').game;          // Dee re-counts: 25
-    g = applyIntent(g, { t: 'undoRound' }, 'a').game;
+    g = applyIntent(g, { t: 'undoRound', round: 2 }, 'a').game;
     expect(g).toMatchObject({ phase: 'round', roundNum: 1, currentDouble: 12 });
     expect(g.scores.b).toEqual({ total: 25, last: 25, turnedIn: true });
     expect(g.scores.a).toEqual({ total: 0, last: 0, turnedIn: false });
-    expect(applyIntent(g, { t: 'undoRound' }, 'a').error).toBe('nothing_to_undo');
+    expect(applyIntent(g, { t: 'undoRound', round: 2 }, 'a').error).toBe('stale_round'); // queued repeat
+    expect(applyIntent(g, { t: 'undoRound', round: 1 }, 'a').error).toBe('nothing_to_undo');
   });
 
   it('pickDouble clamps to 0..12', () => {

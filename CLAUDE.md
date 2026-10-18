@@ -231,6 +231,9 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
 - `index.html`, `gallery.html`, `src/` — the Vite app.
   - `src/main.js` — orchestrator: history-aware nav stack, scanner sub-flow, and the
     live game (subscribes to `net.onState`, emits intents, server `phase` → screen).
+    Every server-sending tap goes through `send()`/`lockTap()`, which locks the
+    tapped button until the answer redraws the screen (6s fallback) — offline taps
+    queue and replay on reconnect, so repeats must be impossible or harmless.
   - `src/net.js` — the WebSocket client: connect/send/onState, auto-reconnect,
     `{code,playerId,token}` persisted in `localStorage`.
   - `src/game-state.js` — pure view helpers over a server snapshot (`viewGame`,
@@ -273,8 +276,8 @@ guest who scans it would otherwise become manager. Without the flag, first joine
 wins), 
 `startRound{d?}`(mgr — opens round 1 on `d`, default 12), `pickDouble{d,round}`(mgr —
 `round` = the round being closed; a mismatch is `stale_round`, so a repeated tap
-cannot start extra rounds; required mid-round), `undoRound`(mgr — back to the
-previous round on its double; turn-ins made in the dropped round carry back into
+cannot start extra rounds; required mid-round), `undoRound{round}`(mgr — `round` = the
+round being undone, else `stale_round`; back to the previous round on its double; turn-ins made in the dropped round carry back into
 it, a newer turn-in replacing an older one; totals unchanged except that swap),
 `setDouble{d}`(mgr — corrects the CURRENT round's double, round/standings only;
 scores untouched), `turnIn{total}`, `setScore{id,total}`(mgr —

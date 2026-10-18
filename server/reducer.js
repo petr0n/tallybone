@@ -122,6 +122,9 @@ export function applyIntent(game, intent, actorId) {
     // each player's round once.
     case 'undoRound': {
       if (g.phase !== 'round' && g.phase !== 'standings') return { game, error: 'bad_phase' };
+      // `round` = the round being undone. Taps made offline are queued and sent
+      // together on reconnect; without this, two queued undos drop two rounds.
+      if (intent.round !== g.roundNum) return { game, error: 'stale_round' };
       const prev = (g.history || [])[(g.history || []).length - 1];
       if (!prev) return { game, error: 'nothing_to_undo' };
       g.history = g.history.slice(0, -1);
