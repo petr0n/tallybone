@@ -161,9 +161,41 @@ describe('reducer', () => {
     let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
     g = applyIntent(g, { t: 'startRound' }, 'a').game;
     g = applyIntent(g, { t: 'turnIn', total: 6 }, 'a').game;           // Dee never turns in
-    g = applyIntent(g, { t: 'pickDouble', d: 11 }, 'a').game;
+    expect(applyIntent(g, { t: 'pickDouble', d: 11 }, 'a').error).toBe('stale_round'); // no round named
+    g = applyIntent(g, { t: 'pickDouble', d: 11, round: 1 }, 'a').game;
     expect(g).toMatchObject({ phase: 'round', roundNum: 2, currentDouble: 11 });
     expect(g.history[0].scores).toEqual({ a: 6, b: null });
+  });
+
+  // A live table advanced four phantom rounds: one picker, tapped repeatedly.
+  it('a repeated pickDouble for the same round is rejected, not a second round', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = applyIntent(g, { t: 'pickDouble', d: 10, round: 1 }, 'a').game;
+    const again = applyIntent(g, { t: 'pickDouble', d: 10, round: 1 }, 'a');
+    expect(again.error).toBe('stale_round');
+    expect(again.game.roundNum).toBe(2);
+  });
+
+  it('undoRound restores the previous round, its double and its turn-ins', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 20 }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 30 }, 'b').game;          // round 1 done
+    g = applyIntent(g, { t: 'pickDouble', d: 10, round: 1 }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 82 }, 'b').game;          // round 2: only Dee
+    g = applyIntent(g, { t: 'pickDouble', d: 10, round: 2 }, 'a').game; // phantom
+    g = applyIntent(g, { t: 'turnIn', total: 5 }, 'a').game;           // into the phantom
+    expect(applyIntent(g, { t: 'undoRound' }, 'b').error).toBe('not_manager');
+    g = applyIntent(g, { t: 'undoRound' }, 'a').game;
+    expect(g).toMatchObject({ phase: 'round', roundNum: 2, currentDouble: 10 });
+    expect(g.scores.a).toEqual({ total: 20, last: 0, turnedIn: false });  // the 5 is gone
+    expect(g.scores.b).toEqual({ total: 112, last: 82, turnedIn: true });
+    expect(g.history).toHaveLength(1);
+    g = applyIntent(g, { t: 'undoRound' }, 'a').game;                   // all were in -> standings
+    expect(g).toMatchObject({ phase: 'standings', roundNum: 1, currentDouble: 12 });
+    expect(g.scores.b).toEqual({ total: 30, last: 30, turnedIn: true });
+    expect(applyIntent(g, { t: 'undoRound' }, 'a').error).toBe('nothing_to_undo');
   });
 
   it('pickDouble clamps to 0..12', () => {

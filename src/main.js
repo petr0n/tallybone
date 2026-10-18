@@ -277,7 +277,9 @@ function showPickDouble() {
     onRules: () => navGo(showRules),
     // From the Lobby this opens round 1; from Standings, the next round. Either
     // way phase -> round routes everyone.
-    onConfirm: (d) => net.send(view().phase === 'lobby' ? { t: 'startRound', d } : { t: 'pickDouble', d }),
+    // `round` = the round this picker closes, so a repeat is rejected by the
+    // server instead of starting another round.
+    onConfirm: (d) => net.send(view().phase === 'lobby' ? { t: 'startRound', d } : { t: 'pickDouble', d, round: view().roundNum }),
   }));
 }
 // Manager correcting the double of the round in progress. Every phone's Round
@@ -347,6 +349,10 @@ function showManager() {
     onRules: () => navGo(showRules),
     onReopen: () => net.send({ t: 'reopenRound' }),   // phase -> round routes everyone
     onChangeDouble: () => navGo(showChangeDouble),
+    onUndoRound: () => {
+      const g = view();
+      if (confirm(`Go back to round ${g.roundNum - 1}? Round ${g.roundNum} is dropped, along with anything turned in for it.`)) net.send({ t: 'undoRound' });
+    },
     onRemove: (id) => net.send({ t: 'removePlayer', id }),
     onCallGame: () => net.send({ t: 'callGame' }),     // phase -> over routes everyone
     onFixScore: (id) => navGo(makeShowFixScore(id)),

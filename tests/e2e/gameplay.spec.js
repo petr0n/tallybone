@@ -261,3 +261,26 @@ test('mid-round standings show totals, and the next round can start anyway', asy
   await rosa.page.getByRole('button', { name: /Start round 3 on/ }).click();
   for (const ph of [rosa, dee]) await expect(ph.page.getByText('ROUND 3', { exact: true })).toBeVisible();
 });
+
+// A round started by mistake (a table once advanced four phantom rounds): the
+// manager undoes it, and every phone is back on the previous round with what
+// was turned in for it intact.
+test('the manager can undo a round start', async ({ browser }) => {
+  const rosa = await newPhone(browser), dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+  await winRound(rosa.page); await winRound(dee.page);
+  await pickNextDouble(rosa.page);                                      // round 2
+  await winRound(dee.page);                                             // Dee is in for round 2
+  await rosa.page.getByText('Scores', { exact: true }).click();
+  await rosa.page.getByRole('button', { name: /Start round 3$/ }).click();
+  await rosa.page.getByRole('button', { name: /Start round 3 on/ }).click(); // the mistake
+  await expect(dee.page.getByText('ROUND 3', { exact: true })).toBeVisible();
+  await rosa.page.getByText('Scores', { exact: true }).click();
+  await rosa.page.getByText('⚙').click();
+  rosa.page.once('dialog', (d) => d.accept());
+  await rosa.page.getByRole('button', { name: 'Undo — back to round 2' }).click();
+  for (const ph of [rosa, dee]) await expect(ph.page.getByText('ROUND 2', { exact: true })).toBeVisible();
+  await expect(rosa.page.getByText('Turned in')).toBeVisible();          // Dee's round-2 turn-in kept
+});

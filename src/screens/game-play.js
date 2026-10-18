@@ -328,7 +328,7 @@ export function renderFixScore({ game, player, onBack, onSave, onRules } = {}) {
   return root;
 }
 
-export function renderManager({ game, onBack, onStartNext, onReopen, onChangeDouble, onRemove, onCallGame, onFixScore, onRules } = {}) {
+export function renderManager({ game, onBack, onStartNext, onReopen, onChangeDouble, onUndoRound, onRemove, onCallGame, onFixScore, onRules } = {}) {
   const root = html('<div class="screen screen--light"></div>');
   root.appendChild(darkHeader('ONLY YOU SEE THIS', 'MANAGER CONTROLS', onBack, onRules));
   const body = html('<div style="flex:1;overflow:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:20px;"></div>');
@@ -341,6 +341,11 @@ export function renderManager({ game, onBack, onStartNext, onReopen, onChangeDou
   const changeDbl = html(`<button type="button" class="tb-btn tb-btn--secondary tb-press" style="height:52px;font-size:16px;">Change round ${game.roundNum}'s double (${game.currentDouble} / ${game.currentDouble})</button>`);
   changeDbl.addEventListener('click', onChangeDouble);
   roundSec.append(startNext, reopen, changeDbl);
+  if ((game.history || []).length && (game.phase === 'round' || game.phase === 'standings')) {
+    const undo = html(`<button type="button" class="tb-btn tb-btn--secondary tb-press" style="height:52px;font-size:16px;">Undo — back to round ${game.roundNum - 1}</button>`);
+    undo.addEventListener('click', onUndoRound);
+    roundSec.appendChild(undo);
+  }
   roundSec.appendChild(html('<div style="font-size:13.5px;line-height:1.45;color:var(--secondary-light-2);">Reopening lets anyone re-scan and replace what they turned in.</div>'));
   body.appendChild(roundSec);
 
@@ -476,7 +481,9 @@ export function renderPickDouble({ game, suggested, change, onBack, onConfirm, o
       return cell;
     }));
     const btn = html(`<button type="button" class="tb-btn tb-btn--primary tb-press" style="height:58px;">${change ? `Round ${nextRound} opened on` : `Start round ${nextRound} on`} ${selected} / ${selected}</button>`);
-    btn.addEventListener('click', () => onConfirm(selected));
+    // One tap only: the confirm used to stay live, and a table advanced four
+    // rounds from one picker. The server also rejects a stale repeat.
+    btn.addEventListener('click', () => { btn.disabled = true; onConfirm(selected); });
     btnSlot.replaceChildren(btn);
   }
   refresh();

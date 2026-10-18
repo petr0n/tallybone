@@ -18,7 +18,7 @@ export function emptyGame(code) {
   return { code, phase: 'lobby', roundNum: 1, currentDouble: 12, managerId: null, players: [], scores: {}, history: [] };
 }
 
-const MANAGER_INTENTS = new Set(['startRound', 'pickDouble', 'setDouble', 'removePlayer', 'reopenRound', 'callGame', 'runItBack', 'setScore']);
+const MANAGER_INTENTS = new Set(['startRound', 'pickDouble', 'setDouble', 'undoRound', 'removePlayer', 'reopenRound', 'callGame', 'runItBack', 'setScore']);
 const clampDouble = (d) => Math.max(0, Math.min(12, d | 0));
 const activePlayers = (g) => g.players.filter((p) => !p.removed);
 const allIn = (g) => activePlayers(g).every((x) => g.scores[x.id] && g.scores[x.id].turnedIn);
@@ -99,12 +99,35 @@ export function applyIntent(game, intent, actorId) {
     // From standings, or straight from a live round: Standings tells the manager
     // "you can start anyway" while players are still counting. Anyone who never
     // turned in is recorded as null for the closed round.
+    //
+    // `round` names the round being closed, which makes a repeat harmless: a
+    // second tap (or a phone that never left the picker) carries a round that
+    // has already moved on and is rejected — a live table once advanced four
+    // phantom rounds from one picker. A mid-round start requires it; from
+    // standings it stays optional, which is all an older client could do.
     case 'pickDouble': {
       if (g.phase !== 'standings' && g.phase !== 'round') return { game, error: 'bad_phase' };
+      if (intent.round != null ? intent.round !== g.roundNum : g.phase === 'round') return { game, error: 'stale_round' };
       closeRound(g);
       g.currentDouble = clampDouble(intent.d);
       g.roundNum += 1; g.phase = 'round';
       startScores(g, false);
+      return { game: g };
+    }
+    // Undo the last round start: back to the previous round exactly as it was
+    // closed — its double, and who had turned in what. Anything turned in for
+    // the round being dropped is taken back out of the totals.
+    case 'undoRound': {
+      if (g.phase !== 'round' && g.phase !== 'standings') return { game, error: 'bad_phase' };
+      const prev = (g.history || [])[(g.history || []).length - 1];
+      if (!prev) return { game, error: 'nothing_to_undo' };
+      g.history = g.history.slice(0, -1);
+      for (const [id, s] of Object.entries(g.scores)) {
+        const v = prev.scores[id];
+        g.scores[id] = { total: s.total - (s.turnedIn ? s.last : 0), last: v ?? 0, turnedIn: v != null };
+      }
+      g.roundNum = prev.round; g.currentDouble = prev.double;
+      g.phase = activePlayers(g).length && allIn(g) ? 'standings' : 'round';
       return { game: g };
     }
     // Correct the double the CURRENT round opened on (a mis-tap, or a game that

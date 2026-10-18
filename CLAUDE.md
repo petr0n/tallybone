@@ -252,7 +252,7 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     full-snapshot broadcast.
   - `server/reducer.js` — the pure `applyIntent` game logic (no Cloudflare imports,
     no I/O, no randomness — the DO mints IDs/tokens and passes them in).
-  - `server/reducer.test.js` — 25 vitest cases; `server/smoke.mjs` — 2-client smoke.
+  - `server/reducer.test.js` — 27 vitest cases; `server/smoke.mjs` — 2-client smoke.
 - `wrangler.jsonc` (root) — `GAME` DO binding, `v1` SQLite migration, SPA assets with
   `run_worker_first: ["/api/*"]`, and the `tallybone.com/*` route.
 - `.claude/hooks/js-check.sh` — Stop hook, syntax-checks changed JS/HTML.
@@ -271,7 +271,10 @@ that minted the code opening the table; it claims the game **in the lobby only**
 because the Create screen shows the QR before the creator has taken a seat and a
 guest who scans it would otherwise become manager. Without the flag, first joiner
 wins), 
-`startRound{d?}`(mgr — opens round 1 on `d`, default 12), `pickDouble{d}`(mgr),
+`startRound{d?}`(mgr — opens round 1 on `d`, default 12), `pickDouble{d,round}`(mgr —
+`round` = the round being closed; a mismatch is `stale_round`, so a repeated tap
+cannot start extra rounds; required mid-round), `undoRound`(mgr — back to the
+previous round as it closed: double + turn-ins; drops the current round's turn-ins),
 `setDouble{d}`(mgr — corrects the CURRENT round's double, round/standings only;
 scores untouched), `turnIn{total}`, `setScore{id,total}`(mgr —
 enters/corrects a player's score for the round; a phone that cannot turn in would
