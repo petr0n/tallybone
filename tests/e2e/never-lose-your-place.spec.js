@@ -168,7 +168,9 @@ test('a server tap locks its button until the server answers', async ({ browser 
   await rosa.page.evaluate(() => window.__sockets.at(-1).close());
   const callIt = rosa.page.getByRole('button', { name: /Call it/ });
   await callIt.click();
-  await expect(callIt).toBeDisabled();
+  await expect(callIt).toHaveAttribute('aria-disabled', 'true');
+  await callIt.click({ force: true });                                  // a repeat tap (it only looks disabled) is answered
+  await expect(rosa.page.getByRole('status').filter({ hasText: 'when you\'re back online' })).toBeVisible();
 
   await rosa.context.setOffline(false);                                 // answer lands
   for (const ph of [rosa, dee]) await expect(ph.page.getByText('GAME OVER')).toBeVisible({ timeout: 30000 });

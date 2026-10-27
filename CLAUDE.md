@@ -237,12 +237,16 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     A document-level tap guard also makes every control ignore repeat taps for 1s
     (steppers opt out with `data-repeat`) and swallows a same-spot tap right after
     a screen change (the second half of a double tap landing on the next screen).
+    An ignored repeat is answered: the button nudges (not under reduced motion)
+    and a toast above it says why ("Already sent — waiting for the table…", or
+    "Saved — it'll send when you're back online" offline). Waiting buttons use
+    `aria-disabled`, not `disabled`, so the repeat tap still arrives to answer.
     Automated browsers (`navigator.webdriver`) skip that last check; the e2e that
     covers it sets `window.__tbSpillGuard`. A player mid-scan is not pulled to a
     new round (`scanning`); their turn-in carries the round they started in.
   - `src/net.js` — the WebSocket client: connect/send/onState/onStatus,
     auto-reconnect, `{code,playerId,token}` persisted in `localStorage`.
-  - `src/status-banner.js` — the top bar: "Reconnecting…" while the socket is
+  - `src/status-banner.js` — `toast()` for ignored repeat taps, and the top bar: "Reconnecting…" while the socket is
     down (taps queue), and "Tallybone was updated — tap to reload" when the live
     `index.html` names a different bundle than this tab runs (checked by
     `main.js` on reconnect and on return to foreground).

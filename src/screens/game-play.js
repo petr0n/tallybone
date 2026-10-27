@@ -481,9 +481,10 @@ export function renderPickDouble({ game, suggested, change, onBack, onConfirm, o
       return cell;
     }));
     const btn = html(`<button type="button" class="tb-btn tb-btn--primary tb-press" style="height:58px;">${change ? `Round ${nextRound} opened on` : `Start round ${nextRound} on`} ${selected} / ${selected}</button>`);
-    // One tap only: the confirm used to stay live, and a table advanced four
-    // rounds from one picker. The server also rejects a stale repeat.
-    btn.addEventListener('click', () => { btn.disabled = true; onConfirm(selected); });
+    // One tap only (a table once advanced four rounds from one picker): main.js's
+    // send() locks this button until the server answers, and the server rejects
+    // a stale repeat anyway.
+    btn.addEventListener('click', () => onConfirm(selected));
     btnSlot.replaceChildren(btn);
   }
   refresh();

@@ -24,7 +24,7 @@ import { brandLockup } from './brand.js';
 import { html } from './dom.js';
 import { isIOS, isIOSNonSafari } from './platform.js';
 import * as net from './net.js';
-import { setOffline, setUpdated } from './status-banner.js';
+import { setOffline, setUpdated, toast } from './status-banner.js';
 import { measure, play, enter, resetGroup, reducedMotion } from './motion.js';
 import { scanEvent, postScanLog } from './scanlog.js';
 
@@ -226,7 +226,8 @@ async function checkForUpdate() {
     if (live && live !== ours) setUpdated();
   } catch { /* offline: try again next time */ }
 }
-net.onStatus((s) => { setOffline(s === 'offline'); if (s === 'online') checkForUpdate(); });
+let netStatus = 'idle';
+net.onStatus((s) => { netStatus = s; setOffline(s === 'offline'); if (s === 'online') checkForUpdate(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
 
 // Every tap that talks to the server locks the button it came from. On a slow
@@ -253,7 +254,18 @@ document.addEventListener('click', (e) => {
   const automated = navigator.webdriver && !window.__tbSpillGuard;
   const spill = !automated && now - navAt < NAV_SETTLE_MS && now - lastTapXY.at < NAV_SETTLE_MS * 2 && nearLastTap(e);
   lastTapXY = { x: e.clientX, y: e.clientY, at: now };
-  if (t.dataset.tapLock || spill) { e.stopPropagation(); e.preventDefault(); lastTap = null; return; }
+  if (t.dataset.tapLock || spill) {
+    e.stopPropagation(); e.preventDefault(); lastTap = null;
+    // Say why a repeat tap did nothing. Not for a spill: that tap was never meant
+    // for this screen, so a message about it would only confuse.
+    if (t.dataset.tapLock) {
+      if (!reducedMotion()) { t.classList.remove('tb-nudge'); void t.offsetWidth; t.classList.add('tb-nudge'); }
+      toast(t.dataset.tapLock === 'server'
+        ? (netStatus === 'offline' ? 'Saved — it\'ll send when you\'re back online' : 'Already sent — waiting for the table…')
+        : 'Got it — one tap is enough', t);
+    }
+    return;
+  }
   t.dataset.tapLock = 'tap';
   setTimeout(() => { if (t.dataset.tapLock === 'tap') delete t.dataset.tapLock; }, 1000);
 }, true);
@@ -262,7 +274,10 @@ function lockTap() {
   if (!el || !el.isConnected) return;
   const set = (on) => {
     if (on) el.dataset.tapLock = 'server'; else delete el.dataset.tapLock;
-    el.disabled = on; el.style.pointerEvents = on ? 'none' : ''; el.style.opacity = on ? '0.55' : '';
+    // aria-disabled, not `disabled`: a disabled button gets no click event, so a
+    // repeat tap could not be answered. The tap guard above swallows it instead.
+    if (on) el.setAttribute('aria-disabled', 'true'); else el.removeAttribute('aria-disabled');
+    el.style.opacity = on ? '0.55' : '';
   };
   set(true);
   setTimeout(() => { if (el.isConnected) set(false); }, 6000);

@@ -230,7 +230,13 @@
 .home-enter .home-enter__row--3 { animation-delay: calc(var(--delay-home-rows) + 2 * var(--stagger-home)); }
 .home-enter .home-enter__row--4 { animation-delay: calc(var(--delay-home-rows) + 3 * var(--stagger-home)); }
 
+/* A repeat tap that was ignored: the button shrugs, so it reads as "heard you,
+   already on it" rather than as a dead control. main.js adds the class. */
+@keyframes tb-nudge { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.tb-nudge { animation: tb-nudge 0.24s ease-in-out; }
+
 @media (prefers-reduced-motion: reduce) {
+  .tb-nudge { animation: none !important; }
   .scn__march, .scn__bar-fill, .scn__line, .cap__blink { animation: none !important; }
   /* motion.js refuses the entrance outright, so these classes should never be
      applied here. Belt and braces: this failure is silent for the people it
