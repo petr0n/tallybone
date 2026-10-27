@@ -234,6 +234,12 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     Every server-sending tap goes through `send()`/`lockTap()`, which locks the
     tapped button until the answer redraws the screen (6s fallback) — offline taps
     queue and replay on reconnect, so repeats must be impossible or harmless.
+    A document-level tap guard also makes every control ignore repeat taps for 1s
+    (steppers opt out with `data-repeat`) and swallows a same-spot tap right after
+    a screen change (the second half of a double tap landing on the next screen).
+    Automated browsers (`navigator.webdriver`) skip that last check; the e2e that
+    covers it sets `window.__tbSpillGuard`. A player mid-scan is not pulled to a
+    new round (`scanning`); their turn-in carries the round they started in.
   - `src/net.js` — the WebSocket client: connect/send/onState/onStatus,
     auto-reconnect, `{code,playerId,token}` persisted in `localStorage`.
   - `src/status-banner.js` — the top bar: "Reconnecting…" while the socket is
@@ -259,7 +265,7 @@ pnpm build && npx wrangler deploy    # deploy to tallybone.com — runs whenever
     full-snapshot broadcast.
   - `server/reducer.js` — the pure `applyIntent` game logic (no Cloudflare imports,
     no I/O, no randomness — the DO mints IDs/tokens and passes them in).
-  - `server/reducer.test.js` — 28 vitest cases; `server/smoke.mjs` — 2-client smoke.
+  - `server/reducer.test.js` — 29 vitest cases; `server/smoke.mjs` — 2-client smoke.
 - `wrangler.jsonc` (root) — `GAME` DO binding, `v1` SQLite migration, SPA assets with
   `run_worker_first: ["/api/*"]`, and the `tallybone.com/*` route.
 - `.claude/hooks/js-check.sh` — Stop hook, syntax-checks changed JS/HTML.
@@ -284,9 +290,13 @@ cannot start extra rounds; required mid-round), `undoRound{round}`(mgr — `roun
 round being undone, else `stale_round`; back to the previous round on its double; turn-ins made in the dropped round carry back into
 it, a newer turn-in replacing an older one; totals unchanged except that swap),
 `setDouble{d}`(mgr — corrects the CURRENT round's double, round/standings only;
-scores untouched), `turnIn{total}`, `setScore{id,total}`(mgr —
-enters/corrects a player's score for the round; a phone that cannot turn in would
-otherwise stall the round for everyone), `removePlayer{id}`(mgr), `leave` (a player gives up their own seat; same
+scores untouched), `turnIn{total,round}`, `setScore{id,total,round}`(mgr —
+enters/corrects a player's score; a phone that cannot turn in would otherwise
+stall the round for everyone). `round` = the round the score is FOR (the client
+fixes it when a scan starts): the current round records as usual; an earlier
+round fills that player's null slot in `history` (else `round_closed`), so a hand
+counted while the round moved on is never booked into the new round. Optional
+for older clients (= current round), `removePlayer{id}`(mgr), `leave` (a player gives up their own seat; same
 effect as being removed, and rejoining restores the seat and total),
 `reopenRound`(mgr), `callGame`(mgr), `runItBack`(mgr).
 DO→phone: `state{game}`, `you{playerId,token,role}`, `error{code}`.

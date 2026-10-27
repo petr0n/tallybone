@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
 import { PERSONAS } from '../fixtures/personas.js';
 import {
   newPhone, newScanPhone, gotoHome, createGame, joinGame, startRound, scanTurnIn,
-  pickNextDouble, winRound, callGame, expectLeader,
+  pickNextDouble, winRound, callGame, expectLeader, enableSpillGuard,
 } from '../support/game.js';
 
 test('six-player flagship: full game to a correct winner', async ({ browser }) => {
@@ -283,4 +283,54 @@ test('the manager can undo a round start', async ({ browser }) => {
   await rosa.page.getByRole('button', { name: 'Undo — back to round 2' }).click();
   for (const ph of [rosa, dee]) await expect(ph.page.getByText('ROUND 2', { exact: true })).toBeVisible();
   await expect(rosa.page.getByText('Turned in')).toBeVisible();          // Dee's round-2 turn-in kept
+});
+
+// A double tap on "Start round 2": the first tap opens the picker, and the second
+// lands where the picker's confirm button now sits. It must NOT start the round —
+// the manager has not chosen a double yet.
+test('a double tap on "Start round" only opens the picker', async ({ browser }) => {
+  const rosa = await newPhone(browser), dee = await newPhone(browser);
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+  await winRound(rosa.page); await winRound(dee.page);
+  await enableSpillGuard(rosa.page);
+  await rosa.page.waitForTimeout(1000);          // a person reads Standings before tapping
+  await rosa.page.getByRole('button', { name: /Start round 2$/ }).dblclick();
+  await expect(rosa.page.getByText('CHOOSE THE DOUBLE')).toBeVisible();
+  await dee.page.waitForTimeout(1500);
+  await expect(dee.page.getByText('ROUND 2', { exact: true })).toHaveCount(0);
+});
+
+// Table 98QQH: players counting their round-3 hands when the round moved on.
+// Dee is mid-scan when the manager starts round 2 anyway. She must stay in her
+// scan, and her score must land in round 1 — not round 2.
+test('a scan finished after the next round started counts for the round it was for', async ({ browser }) => {
+  test.setTimeout(180_000);
+  const rosa = await newPhone(browser);
+  const dee = { ...(await newScanPhone(browser)), photo: PERSONAS[1].photo };
+  const code = await createGame(rosa.page, 'Rosa');
+  await joinGame(dee.page, code, 'Dee');
+  await startRound(rosa.page);
+  await dee.page.getByRole('button', { name: 'Scan my tiles' }).click();       // round 1 scan begins
+  await expect(dee.page.getByText('TAKE A PHOTO OF YOUR TILES', { exact: true })).toBeVisible({ timeout: 30000 });
+
+  await winRound(rosa.page);                                                    // Rosa out; on Standings
+  await rosa.page.getByRole('button', { name: /Start round 2$/ }).click();     // start anyway
+  await rosa.page.getByRole('button', { name: /Start round 2 on/ }).click();
+  await expect(rosa.page.getByText('ROUND 2', { exact: true })).toBeVisible();
+  await expect(dee.page.getByText('TAKE A PHOTO OF YOUR TILES', { exact: true })).toBeVisible(); // not yanked
+
+  await dee.page.locator('input[type=file]').setInputFiles(dee.photo);
+  await expect(dee.page.locator('.rev__total')).toBeVisible({ timeout: 90000 });
+  const total = Number(await dee.page.locator('.rev__total').innerText());
+  await dee.page.locator('.rev__footer .tb-btn--primary').click();
+  dee.page.once('dialog', (d) => d.accept());                                  // "Round 1 ended while you were counting…"
+  await dee.page.getByRole('button', { name: /Turn in \d+ points/ }).click();
+  await expect(dee.page.getByText('ROUND 2', { exact: true })).toBeVisible();  // now at the live round
+
+  await rosa.page.getByText('Scores', { exact: true }).click();
+  const deeRow = rosa.page.locator('tr').filter({ hasText: 'DE' });
+  await expect(deeRow.locator('td').nth(1)).toHaveText(String(total));        // R1 column
+  await expect(rosa.page.locator('[data-pid]').filter({ hasText: 'Dee' })).toContainText('STILL SCANNING'); // owes round 2
 });

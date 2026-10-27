@@ -148,9 +148,11 @@ export function renderReview({ tiles, sourceImageData, photoW, photoH, onSubmit,
 
   function stepper(item, half) {
     const wrap = el('div', 'rev__stepper');
-    const minus = html('<button type="button" class="minus">–</button>');
+    // data-repeat: rapid + + + is the point of a stepper, so main.js's tap guard
+    // leaves these alone (they are not redrawn between taps).
+    const minus = html('<button type="button" class="minus" data-repeat>–</button>');
     const val = el('div', `val val--${half}`, String(item[half]));
-    const plus = html('<button type="button" class="plus">+</button>');
+    const plus = html('<button type="button" class="plus" data-repeat>+</button>');
     minus.addEventListener('click', () => bump(item, half, -1));
     plus.addEventListener('click', () => bump(item, half, 1));
     wrap.append(minus, val, plus);

@@ -58,6 +58,33 @@ function closeRound(g) {
   g.history = [...(g.history || []), { round: g.roundNum, double: g.currentDouble, scores }];
 }
 
+// Record a score for player `id` in the round it was counted for. `round`
+// defaults to the current one (older clients send none). A round that moved on
+// while they were counting — the manager started the next one — gets the score
+// in its closed history slot instead of the new round: at table 98QQH three
+// players' round-3 hands landed in "round 7". Only an empty (null) slot is
+// filled; a player who already has a score there, or was not seated for that
+// round, is refused rather than overwritten.
+function recordScore(g, id, intent, phases) {
+  const s = g.scores[id];
+  const pts = Math.max(0, intent.total | 0);
+  const round = intent.round == null ? g.roundNum : intent.round;
+  if (round === g.roundNum) {
+    if (!phases.includes(g.phase)) return 'bad_phase';
+    s.total = s.total - s.last + pts; // idempotent: re-turnIn corrects, never double-counts
+    s.last = pts;
+    s.turnedIn = true;
+    if (allIn(g)) g.phase = 'standings';
+    return null;
+  }
+  const h = (g.history || []).find((x) => x.round === round);
+  if (!h || !(id in h.scores)) return 'stale_round';
+  if (h.scores[id] !== null) return 'round_closed';
+  h.scores[id] = pts;
+  s.total += pts;
+  return null;
+}
+
 export function applyIntent(game, intent, actorId) {
   const t = intent && intent.t;
   if (MANAGER_INTENTS.has(t) && actorId !== game.managerId) return { game, error: 'not_manager' };
@@ -151,28 +178,16 @@ export function applyIntent(game, intent, actorId) {
     // the round never closes. Same arithmetic as turnIn, including the correct-
     // don't-double-count rule, so fixing a wrong entry is the same action.
     case 'setScore': {
-      if (g.phase !== 'round' && g.phase !== 'standings') return { game, error: 'bad_phase' };
       const p = g.players.find((x) => x.id === intent.id && !x.removed);
-      const s = p && g.scores[intent.id];
-      if (!p || !s) return { game, error: 'no_player' };
-      const pts = Math.max(0, intent.total | 0);
-      s.total = s.total - s.last + pts;
-      s.last = pts;
-      s.turnedIn = true;
-      if (allIn(g)) g.phase = 'standings';
-      return { game: g };
+      if (!p || !g.scores[intent.id]) return { game, error: 'no_player' };
+      const error = recordScore(g, intent.id, intent, ['round', 'standings']);
+      return error ? { game, error } : { game: g };
     }
     case 'turnIn': {
-      if (g.phase !== 'round') return { game, error: 'bad_phase' };
       const p = g.players.find((x) => x.id === actorId && !x.removed);
-      const s = g.scores[actorId];
-      if (!p || !s) return { game, error: 'not_joined' };
-      const pts = Math.max(0, intent.total | 0);
-      s.total = s.total - s.last + pts; // idempotent: re-turnIn corrects, never double-counts
-      s.last = pts;
-      s.turnedIn = true;
-      if (allIn(g)) g.phase = 'standings';
-      return { game: g };
+      if (!p || !g.scores[actorId]) return { game, error: 'not_joined' };
+      const error = recordScore(g, actorId, intent, ['round']);
+      return error ? { game, error } : { game: g };
     }
     case 'removePlayer': {
       if (!removeSeat(g, intent.id)) return { game, error: 'no_such_player' };

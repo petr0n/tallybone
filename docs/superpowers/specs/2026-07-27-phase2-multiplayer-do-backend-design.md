@@ -133,7 +133,8 @@ are marked *(mgr)*.
 | `setDouble` *(mgr)* | `{ d }` | In `round`/`standings`: correct the current round's double (0..12). Scores untouched; the history entry written at close records it. |
 | `pickDouble` *(mgr)* | `{ d, round }` | From `standings` or a live `round`: close the round (anyone not turned in → null), set `currentDouble = d`, `roundNum += 1`, start the next. `round` must equal the current `roundNum` (else `stale_round`) — required mid-round, optional from standings. |
 | `undoRound` *(mgr)* | `{ round }` | `round` must equal `roundNum` (else `stale_round`, so a queued repeat cannot undo twice). In `round`/`standings`: pop the last `history` entry and return to that round on its double. Turn-ins made in the dropped round carry back into it (a newer turn-in replaces the older; each round counted once in totals). |
-| `turnIn` | `{ total, tiles? }` | Record the calling player's round score (`tiles` optional, for future audit). |
+| `turnIn` | `{ total, round?, tiles? }` | Record the calling player's score for `round` (default: current). An earlier round fills their `null` slot in `history` (else `round_closed`; not seated then → `stale_round`) and adds to their total — a hand counted while the round moved on lands in the round it was for. `tiles` optional, for future audit. |
+| `setScore` *(mgr)* | `{ id, total, round? }` | The manager records a player's score, same rules as `turnIn`; in `round` or `standings` for the current round. |
 | `removePlayer` *(mgr)* | `{ id }` | Mark a player `removed`. Scores/history kept; a manager's role passes to the first seated player; a round waiting only on them closes. |
 | `leave` | — | The sender gives up their own seat — same effect as `removePlayer` on themselves. Rejoining by token or name restores the seat and total. |
 | `reopenRound` *(mgr)* | — | `standings → round`. |

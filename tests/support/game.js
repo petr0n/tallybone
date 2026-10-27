@@ -6,6 +6,11 @@ import { expect } from '@playwright/test';
 import { blockCamera } from './camera.js';
 
 // A fresh phone = an isolated browser context (own storage) + page on Home.
+// Automated browsers skip main.js's double-tap spill check (they report
+// navigator.webdriver, and tap faster than any person). The test that covers the
+// check turns it back on.
+export const enableSpillGuard = (page) => page.evaluate(() => { window.__tbSpillGuard = true; });
+
 export async function newPhone(browser) {
   const context = await browser.newContext();
   const page = await context.newPage();

@@ -217,6 +217,27 @@ describe('reducer', () => {
     expect(applyIntent(g, { t: 'undoRound', round: 1 }, 'a').error).toBe('nothing_to_undo');
   });
 
+  // 98QQH: players counting round 3 when the round moved on. Their turn-in must
+  // land in round 3, not in whatever round is current now.
+  it('a turn-in for a round that moved on fills that round, not the new one', () => {
+    let g = emptyGame('C'); g = join(g, 'a', 'Rosa'); g = join(g, 'b', 'Dee');
+    g = applyIntent(g, { t: 'startRound' }, 'a').game;
+    g = applyIntent(g, { t: 'turnIn', total: 0, round: 1 }, 'a').game;   // Rosa went out
+    g = applyIntent(g, { t: 'pickDouble', d: 11, round: 1 }, 'a').game;  // started anyway
+    g = applyIntent(g, { t: 'turnIn', total: 40, round: 1 }, 'b').game;  // Dee's round-1 hand
+    expect(g.history[0].scores).toEqual({ a: 0, b: 40 });
+    expect(g.scores.b).toEqual({ total: 40, last: 0, turnedIn: false }); // still owes round 2
+    expect(g).toMatchObject({ phase: 'round', roundNum: 2 });
+    // a second late turn-in for the same round is refused, not overwritten
+    expect(applyIntent(g, { t: 'turnIn', total: 5, round: 1 }, 'b').error).toBe('round_closed');
+    expect(applyIntent(g, { t: 'turnIn', total: 5, round: 3 }, 'b').error).toBe('stale_round');
+    // the manager can fill a missed round for someone else the same way
+    g = join(g, 'c', 'Late');                                             // not seated in round 1
+    expect(applyIntent(g, { t: 'setScore', id: 'c', total: 9, round: 1 }, 'a').error).toBe('stale_round');
+    g = applyIntent(g, { t: 'turnIn', total: 7, round: 2 }, 'b').game;    // the current round as usual
+    expect(g.scores.b).toEqual({ total: 47, last: 7, turnedIn: true });
+  });
+
   it('pickDouble clamps to 0..12', () => {
     let g = emptyGame('C'); g = join(g, 'a', 'Rosa');
     g = applyIntent(g, { t: 'startRound' }, 'a').game;

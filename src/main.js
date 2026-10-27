@@ -44,6 +44,14 @@ let currentVideo = null;
 let captureRelayout = null;   // window resize handler owned by the capture screen
 let lastCaptureGeom = null;   // viewfinder geometry of the last capture (?tail=1 telemetry)
 let scanContext = 'solo';   // 'solo' | 'ingame'
+// The round an in-game scan is FOR, fixed when the player taps "Scan my tiles".
+// The turn-in carries it, so a round that moves on while they count does not
+// swallow their score (see recordScore in server/reducer.js).
+let scanRound = null;
+// True from "Scan my tiles" until the hand is turned in or the player backs out.
+// While it is, a new round does NOT pull this phone away: being thrown out of a
+// half-done scan made players re-scan the same hand into the new round.
+let scanning = false;
 let lastScan = null;        // { tiles, sourceImageData, photoW, photoH }
 let scanRunId = 0;          // bumped on nav/back to invalidate an in-flight scan
 
@@ -77,6 +85,7 @@ net.onState((g) => {
   }
   if (AUTO_NAV.has(g.phase) && stageOf(g) !== shownStage) {
     shownStage = stageOf(g);
+    if (scanning) return;   // let them finish; the turn-in carries its round
     navResetFromServer(PHASE_SCREEN[g.phase]);
     return;
   }
@@ -93,6 +102,8 @@ net.onError((code) => {
     const lost = net.whoami().code;
     routeNextSnapshot = false;
     if (lost) { joinPrefill = lost; joinError = ''; navReset(showJoin); }
+  } else if (code === 'round_closed') {
+    alert('That round already has a score for you, so this one was not added. The manager can fix it from ⚙.');
   } else console.warn('game error:', code);
 });
 
@@ -141,7 +152,16 @@ function mount(node) {
 // Every navigation clears liveRepaint; a live game screen re-arms it itself.
 const navStack = [];
 function paintTop() { liveRepaint = null; const s = navStack[navStack.length - 1]; if (s) s(); }
-function navReset(show) { liveRepaint = null; navStack.length = 0; navStack.push(show); history.replaceState({ n: 1 }, ''); show(); }
+// When the screen last changed. A double tap whose second tap lands on the NEW
+// screen hits whatever sits there — "Start round 2" opens the picker, whose
+// confirm button is in the same spot, so the round started on the pre-selected
+// double. Taps in the first moments after a screen change are ignored (the tap
+// guard below). Live repaints from other players' actions don't count.
+let navAt = 0;
+const NAV_SETTLE_MS = 450;
+let lastTapXY = { x: -1e4, y: -1e4, at: 0 };   // where and when the previous tap landed
+const nearLastTap = (e) => Math.hypot(e.clientX - lastTapXY.x, e.clientY - lastTapXY.y) < 48;
+function navReset(show) { navAt = performance.now(); liveRepaint = null; navStack.length = 0; navStack.push(show); history.replaceState({ n: 1 }, ''); show(); }
 // The server can move every phone at once — the manager starts a round and your
 // screen changes without you touching anything. That deserves a bridge. Taps you
 // made yourself do NOT: they are frequent and already feel direct, and a delay
@@ -152,10 +172,11 @@ function navResetFromServer(show) {
     enter(root.firstElementChild, { from: 'translateY(6px)', duration: 'var(--dur-bridge)' });
   }
 }
-function navGo(show) { liveRepaint = null; navStack.push(show); history.pushState({ n: navStack.length }, ''); show(); }
-function navSwap(show) { liveRepaint = null; navStack[navStack.length - 1] = show; show(); }
+function navGo(show) { navAt = performance.now(); liveRepaint = null; navStack.push(show); history.pushState({ n: navStack.length }, ''); show(); }
+function navSwap(show) { navAt = performance.now(); liveRepaint = null; navStack[navStack.length - 1] = show; show(); }
 function navBack() { history.back(); }
 window.addEventListener('popstate', () => {
+  navAt = performance.now();
   scanRunId += 1;
   if (navStack.length > 1) { navStack.pop(); paintTop(); } else { paintTop(); }
 });
@@ -213,12 +234,36 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // are how a real table got four phantom rounds. The server's answer redraws the
 // screen with fresh, unlocked buttons; if none comes, it unlocks after 6s.
 // Taps that stay on the phone (pip steppers etc.) never come through here.
+//
+// And no control anywhere takes a second tap: after a tap it ignores further taps
+// until the screen redraws it, or for a second. The double picker's tiles redraw
+// on every tap, so they stay fast; the pip steppers do not, so they opt out with
+// `data-repeat`.
 let lastTap = null;
-document.addEventListener('click', (e) => { lastTap = e.target.closest ? e.target.closest('button, .tb-press') : null; }, true);
+document.addEventListener('click', (e) => {
+  const t = e.target.closest ? e.target.closest('button, .tb-press') : null;
+  lastTap = t;
+  if (!t || t.dataset.repeat != null) return;   // steppers: every tap counts
+  // Swallow a repeat on this control, or any tap that arrives right after the
+  // screen changed (the second half of a double tap, landing on the new screen).
+  const now = performance.now();
+  // Automated test browsers (navigator.webdriver) tap the next screen within
+  // milliseconds, which no person can, so they skip this one check unless a test
+  // turns it on (window.__tbSpillGuard) to exercise it.
+  const automated = navigator.webdriver && !window.__tbSpillGuard;
+  const spill = !automated && now - navAt < NAV_SETTLE_MS && now - lastTapXY.at < NAV_SETTLE_MS * 2 && nearLastTap(e);
+  lastTapXY = { x: e.clientX, y: e.clientY, at: now };
+  if (t.dataset.tapLock || spill) { e.stopPropagation(); e.preventDefault(); lastTap = null; return; }
+  t.dataset.tapLock = 'tap';
+  setTimeout(() => { if (t.dataset.tapLock === 'tap') delete t.dataset.tapLock; }, 1000);
+}, true);
 function lockTap() {
   const el = lastTap; lastTap = null;
   if (!el || !el.isConnected) return;
-  const set = (on) => { el.disabled = on; el.style.pointerEvents = on ? 'none' : ''; el.style.opacity = on ? '0.55' : ''; };
+  const set = (on) => {
+    if (on) el.dataset.tapLock = 'server'; else delete el.dataset.tapLock;
+    el.disabled = on; el.style.pointerEvents = on ? 'none' : ''; el.style.opacity = on ? '0.55' : '';
+  };
   set(true);
   setTimeout(() => { if (el.isConnected) set(false); }, 6000);
 }
@@ -281,6 +326,7 @@ function showJoin() {
   }));
 }
 function showLobby() {
+  scanning = false;
   liveRepaint = showLobby;
   mount(renderLobby({
     game: view(),
@@ -294,13 +340,14 @@ function showLobby() {
   }));
 }
 function showRound() {
+  scanning = false;
   liveRepaint = showRound;
   mount(renderRound({
     game: view(),
     onBack: goHomeKeepingSeat,
     onRules: () => navGo(showRules),
-    onScan: () => { scanContext = 'ingame'; ensureScannerThen(() => navGo(showCapture)); },
-    onWin: () => { send({ t: 'turnIn', total: 0 }); navGo(showStandings); },
+    onScan: () => { scanContext = 'ingame'; scanRound = view().roundNum; scanning = true; ensureScannerThen(() => navGo(showCapture)); },
+    onWin: () => { send({ t: 'turnIn', total: 0, round: view().roundNum }); navGo(showStandings); },
     onScores: () => navGo(showStandings),
     onLeave: leaveTable,
   }));
@@ -340,6 +387,7 @@ const rowsById = () => {
 };
 
 function showStandings() {
+  scanning = false;
   liveRepaint = showStandings;
   const before = measure(rowsById());
   mount(renderStandings({
@@ -363,6 +411,7 @@ function showRoundDetail() {
 // Deliberately NOT registered for liveRepaint: the manager is typing a number,
 // and a snapshot from anyone else turning in would wipe the field mid-entry.
 function makeShowFixScore(playerId) {
+  const round = view().roundNum;   // the round this entry is for, fixed on open
   return function showFixScore() {
     const g = view();
     const player = scoredPlayers(g).find((p) => p.id === playerId);
@@ -372,7 +421,7 @@ function makeShowFixScore(playerId) {
       player,
       onBack: navBack,
       onRules: () => navGo(showRules),
-      onSave: (total) => { send({ t: 'setScore', id: playerId, total }); navBack(); },
+      onSave: (total) => { send({ t: 'setScore', id: playerId, total, round }); navBack(); },
     }));
   };
 }
@@ -395,6 +444,7 @@ function showManager() {
   }));
 }
 function showOver() {
+  scanning = false;
   liveRepaint = showOver;
   mount(renderOver({
     game: view(),
@@ -411,7 +461,17 @@ function makeShowGameSubmit(tiles) {
       onBack: navBack,
       onChangeRead: () => { if (lastScan) navGo(makeShowReview(lastScan)); else navBack(); },
       onRules: () => navGo(showRules),
-    onTurnIn: (total) => { send({ t: 'turnIn', total }); navGo(showStandings); },
+    onTurnIn: (total) => {
+      const round = scanRound ?? view().roundNum;
+      send({ t: 'turnIn', total, round });
+      scanning = false;
+      const g = view();
+      if (round === g.roundNum && g.phase === 'round') { navGo(showStandings); return; }
+      // The game moved on while they counted: the score still goes to the round
+      // it was for; take them to wherever the table is now.
+      alert(`Round ${round} ended while you were counting. Your ${total} goes to round ${round}.`);
+      navResetFromServer(PHASE_SCREEN[g.phase] || showHome);
+    },
     }));
   };
 }
